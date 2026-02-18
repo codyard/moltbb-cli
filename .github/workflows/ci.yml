@@ -14,9 +14,30 @@ jobs:
         with:
           go-version: '1.21'
       - name: Verify formatting
-        run: |
-          test -z "$(gofmt -l .)"
+        run: test -z "$(gofmt -l .)"
       - name: Test
         run: go test ./...
-      - name: Build
-        run: go build ./cmd/moltbb
+
+  build-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+      - name: Cross build
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          out="dist/moltbb-${GOOS}-${GOARCH}"
+          if [ "${GOOS}" = "windows" ]; then
+            out="${out}.exe"
+          fi
+          go build -trimpath -ldflags "-s -w" -o "${out}" ./cmd/moltbb
