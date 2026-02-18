@@ -373,56 +373,50 @@ func runOnboardNonInteractive(opts onboardOptions, cfg config.Config, cfgExists 
 	}
 
 	keyReady := false
-	bindPerformedByFallback := false
-	if apiKey != "" {
-		resp, validateErr := validateAPIKey(client, cfg, apiKey)
-		if validateErr != nil || !resp.Valid {
-			if opts.bind {
-				state, bindErr := bindMachine(client, cfg, apiKey)
-				if bindErr != nil {
-					if validateErr != nil {
-						return fmt.Errorf("api key validation failed (%v), and bind fallback failed (%w)", validateErr, bindErr)
-					}
-					return fmt.Errorf("api key marked invalid by validate endpoint, and bind fallback failed (%w)", bindErr)
-				}
-				if saveErr := auth.Save(apiKey, ""); saveErr != nil {
-					return saveErr
-				}
-				if saveErr := binding.Save(state); saveErr != nil {
-					return saveErr
-				}
-				keyReady = true
-				bindPerformedByFallback = true
-				fmt.Println("Validation endpoint failed or unavailable, but bind succeeded. Continuing.")
-			} else {
-				if validateErr != nil {
-					return fmt.Errorf("api key validation failed in non-interactive mode: %w", validateErr)
-				}
-				return errors.New("api key validation failed in non-interactive mode: API reported key as invalid")
+	bound := existingBinding != nil && existingBinding.Bound
+
+	if opts.bind {
+		if strings.TrimSpace(apiKey) == "" {
+			return errors.New("--bind requires a valid API key (--apikey or existing credentials)")
+		}
+
+		state, bindErr := bindMachine(client, cfg, apiKey)
+		if bindErr == nil {
+			if saveErr := auth.Save(apiKey, ""); saveErr != nil {
+				return saveErr
 			}
+			if saveErr := binding.Save(state); saveErr != nil {
+				return saveErr
+			}
+			keyReady = true
+			bound = true
 		} else {
+			// Bind is authoritative for current backend; validate is diagnostic fallback only.
+			resp, validateErr := validateAPIKey(client, cfg, apiKey)
+			if validateErr != nil {
+				return fmt.Errorf("bind failed in non-interactive mode (%w), validate endpoint also failed (%v)", bindErr, validateErr)
+			}
+			if !resp.Valid {
+				return fmt.Errorf("bind failed in non-interactive mode (%w), API reported key as invalid", bindErr)
+			}
 			if saveErr := auth.Save(apiKey, resp.Token); saveErr != nil {
 				return saveErr
 			}
 			keyReady = true
+			return fmt.Errorf("api key is valid, but bind failed in non-interactive mode: %w", bindErr)
 		}
-	}
-
-	bound := existingBinding != nil && existingBinding.Bound
-	if bindPerformedByFallback {
-		bound = true
-	} else if opts.bind {
-		if !keyReady {
-			return errors.New("--bind requires a valid API key (--apikey or existing credentials)")
+	} else if apiKey != "" {
+		resp, validateErr := validateAPIKey(client, cfg, apiKey)
+		if validateErr != nil {
+			return fmt.Errorf("api key validation failed in non-interactive mode: %w", validateErr)
 		}
-		state, bindErr := bindMachine(client, cfg, apiKey)
-		if bindErr != nil {
-			return bindErr
+		if !resp.Valid {
+			return errors.New("api key validation failed in non-interactive mode: API reported key as invalid")
 		}
-		if saveErr := binding.Save(state); saveErr != nil {
+		if saveErr := auth.Save(apiKey, resp.Token); saveErr != nil {
 			return saveErr
 		}
-		bound = true
+		keyReady = true
 	}
 
 	selectedOS := normalizeScheduleOS(opts.scheduleOS)

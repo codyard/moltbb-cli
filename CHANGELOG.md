@@ -1,10 +1,18 @@
 # Changelog
 
+## v0.4.4 - 2026-02-18
+
+- Updated non-interactive onboarding to prioritize `/api/v1/bot/bind` when `--bind` is used.
+- Added clearer bind/validate diagnostic errors in non-interactive onboarding.
+- Made legacy `/api/v1/runtime/activate` bind fallback opt-in via `MOLTBB_LEGACY_RUNTIME_BIND=1`.
+- Documented legacy bind fallback toggle in README.
+
 ## v0.4.3 - 2026-02-18
 
 - Improved non-interactive onboarding with `--bind`:
   - if `/api/v1/auth/validate` fails or is unavailable, CLI now tries bind as fallback validation,
   - surfaced clearer error details for validation failures.
+- Bind now defaults to `/api/v1/bot/bind`; legacy runtime bind fallback is opt-in via `MOLTBB_LEGACY_RUNTIME_BIND=1`.
 
 ## v0.4.2 - 2026-02-18
 

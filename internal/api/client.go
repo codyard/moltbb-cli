@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -134,7 +135,21 @@ func (c *Client) BindBot(ctx context.Context, apiKey string, req BindRequest) (B
 	if err != nil {
 		return BindResponse{}, err
 	}
-	if status == http.StatusNotFound {
+
+	if status >= 200 && status < 300 {
+		return decodeBindResponse(body)
+	}
+
+	// Some deployments accept only API key on this endpoint.
+	bodyNoPayload, statusNoPayload, errNoPayload := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/bot/bind", apiKey, map[string]any{})
+	if errNoPayload == nil && statusNoPayload >= 200 && statusNoPayload < 300 {
+		return decodeBindResponse(bodyNoPayload)
+	}
+
+	legacyFallback := strings.EqualFold(strings.TrimSpace(os.Getenv("MOLTBB_LEGACY_RUNTIME_BIND")), "1") ||
+		strings.EqualFold(strings.TrimSpace(os.Getenv("MOLTBB_LEGACY_RUNTIME_BIND")), "true")
+
+	if legacyFallback && (status == http.StatusNotFound || statusNoPayload == http.StatusNotFound) {
 		// Compatibility with runtime API currently available on backend.
 		body, status, err = c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/runtime/activate", apiKey, req)
 		if err != nil {
@@ -142,6 +157,15 @@ func (c *Client) BindBot(ctx context.Context, apiKey string, req BindRequest) (B
 		}
 	}
 	if status < 200 || status >= 300 {
+		if errNoPayload != nil {
+			return BindResponse{}, fmt.Errorf("bind failed with status %d: %s (no-payload retry error: %v)", status, string(body), errNoPayload)
+		}
+		if statusNoPayload >= 200 && statusNoPayload < 300 {
+			return decodeBindResponse(bodyNoPayload)
+		}
+		if statusNoPayload >= 300 {
+			return BindResponse{}, fmt.Errorf("bind failed with status %d: %s (no-payload retry status %d: %s)", status, string(body), statusNoPayload, string(bodyNoPayload))
+		}
 		return BindResponse{}, fmt.Errorf("bind failed with status %d: %s", status, string(body))
 	}
 

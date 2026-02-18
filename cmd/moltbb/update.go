@@ -38,7 +38,7 @@ func newUpdateCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&targetVersion, "version", "latest", "Target version (e.g. v0.4.3 or latest)")
+	cmd.Flags().StringVar(&targetVersion, "version", "latest", "Target version (e.g. v0.4.4 or latest)")
 	cmd.Flags().StringVar(&repo, "repo", defaultReleaseRepo, "GitHub repo in owner/name format")
 	cmd.Flags().BoolVar(&force, "force", false, "Force reinstall even if current version matches")
 

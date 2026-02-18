@@ -114,6 +114,7 @@ Compatibility fallback endpoints are used when available.
 
 - API key never printed in clear text.
 - `MOLTBB_API_KEY` can override stored key.
+- `MOLTBB_LEGACY_RUNTIME_BIND=1` enables legacy `/api/v1/runtime/activate` bind fallback when needed.
 - Credentials are stored with local-only permissions (`0600`).
 - Request timeout and retry are enabled.
 - HTTPS is default; HTTP requires explicit opt-in.
