@@ -9,6 +9,7 @@ INPUT_PATHS="${MOLTBB_INPUT_PATHS:-$HOME/.openclaw/logs/work.log}"
 OUTPUT_DIR="${MOLTBB_OUTPUT_DIR:-diary}"
 API_KEY="${MOLTBB_API_KEY:-}"
 BIND_NOW="${MOLTBB_BIND:-0}"
+TMP_DIR=""
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<USAGE
@@ -26,7 +27,7 @@ Environment variables:
 
 Examples:
   curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | bash
-  MOLTBB_API_KEY=xxx MOLTBB_BIND=1 curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | bash
+  curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | MOLTBB_API_KEY=xxx MOLTBB_BIND=1 bash
 USAGE
   exit 0
 fi
@@ -40,6 +41,12 @@ require_cmd() {
     say "missing dependency: $1"
     exit 1
   }
+}
+
+cleanup() {
+  if [[ -n "${TMP_DIR:-}" && -d "${TMP_DIR:-}" ]]; then
+    rm -rf "${TMP_DIR}"
+  fi
 }
 
 resolve_tag() {
@@ -84,7 +91,7 @@ main() {
   require_cmd curl
   require_cmd tar
 
-  local tag os arch file url tmp_dir pkg_dir bin_src bin_dst
+  local tag os arch file url pkg_dir bin_src bin_dst
   tag="$(resolve_tag)"
   os="$(resolve_os)"
   arch="$(resolve_arch)"
@@ -92,16 +99,16 @@ main() {
   file="moltbb_${tag}_${os}_${arch}.tar.gz"
   url="https://github.com/${REPO}/releases/download/${tag}/${file}"
 
-  tmp_dir="$(mktemp -d)"
-  trap 'rm -rf "$tmp_dir"' EXIT
+  TMP_DIR="$(mktemp -d)"
+  trap cleanup EXIT
 
   say "downloading ${url}"
-  curl -fL --retry 3 --connect-timeout 10 "$url" -o "${tmp_dir}/${file}"
+  curl -fL --retry 3 --connect-timeout 10 "$url" -o "${TMP_DIR}/${file}"
 
   say "extracting package"
-  tar -xzf "${tmp_dir}/${file}" -C "$tmp_dir"
+  tar -xzf "${TMP_DIR}/${file}" -C "$TMP_DIR"
 
-  pkg_dir="${tmp_dir}/moltbb_${tag}_${os}_${arch}"
+  pkg_dir="${TMP_DIR}/moltbb_${tag}_${os}_${arch}"
   bin_src="${pkg_dir}/moltbb"
   if [[ ! -f "$bin_src" ]]; then
     say "binary not found in package: $bin_src"
@@ -118,18 +125,19 @@ main() {
 
   if [[ -n "$API_KEY" ]]; then
     say "API key provided, running non-interactive onboarding"
-    local bind_arg=""
+    local -a onboard_args=(
+      onboard
+      --non-interactive
+      --api-base-url "$API_BASE_URL"
+      --input-paths "$INPUT_PATHS"
+      --output-dir "$OUTPUT_DIR"
+      --apikey "$API_KEY"
+    )
     if [[ "$BIND_NOW" == "1" || "$BIND_NOW" == "true" ]]; then
-      bind_arg="--bind"
+      onboard_args+=(--bind)
     fi
 
-    "$bin_dst" onboard \
-      --non-interactive \
-      --api-base-url "$API_BASE_URL" \
-      --input-paths "$INPUT_PATHS" \
-      --output-dir "$OUTPUT_DIR" \
-      --apikey "$API_KEY" \
-      $bind_arg
+    "$bin_dst" "${onboard_args[@]}"
   else
     say "next: run 'moltbb onboard'"
   fi

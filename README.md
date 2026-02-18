@@ -39,7 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh 
 Install + non-interactive onboarding + optional bind:
 
 ```bash
-MOLTBB_API_KEY=<your_api_key> MOLTBB_BIND=1 curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | MOLTBB_API_KEY=<your_api_key> MOLTBB_BIND=1 bash
 ```
 
 ## Quick Start
