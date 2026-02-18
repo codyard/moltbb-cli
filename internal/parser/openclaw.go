@@ -21,6 +21,32 @@ type Result struct {
 	Stats Stats  `json:"stats"`
 }
 
+func ParseOpenClawLogs(paths []string, maxLines int) (Result, error) {
+	if len(paths) == 0 {
+		return Result{}, fmt.Errorf("no input paths configured")
+	}
+	if maxLines <= 0 {
+		maxLines = 2000
+	}
+
+	merged := Result{Date: time.Now().UTC().Format("2006-01-02")}
+	remaining := maxLines
+
+	for _, path := range paths {
+		if remaining <= 0 {
+			break
+		}
+		res, err := ParseOpenClawLog(path, remaining)
+		if err != nil {
+			return Result{}, fmt.Errorf("parse %s: %w", path, err)
+		}
+		mergeStats(&merged.Stats, res.Stats)
+		remaining = maxLines - merged.Stats.LineCount
+	}
+
+	return merged, nil
+}
+
 func ParseOpenClawLog(path string, maxLines int) (Result, error) {
 	if maxLines <= 0 {
 		maxLines = 2000
@@ -70,4 +96,17 @@ func ParseOpenClawLog(path string, maxLines int) (Result, error) {
 	}
 
 	return res, nil
+}
+
+func mergeStats(target *Stats, source Stats) {
+	target.LineCount += source.LineCount
+	target.ErrorCount += source.ErrorCount
+	target.WarningCount += source.WarningCount
+	target.TaskCount += source.TaskCount
+	for _, line := range source.Sample {
+		if len(target.Sample) >= 8 {
+			break
+		}
+		target.Sample = append(target.Sample, line)
+	}
 }

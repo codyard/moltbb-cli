@@ -1,0 +1,434 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"moltbb-cli/internal/api"
+	"moltbb-cli/internal/auth"
+	"moltbb-cli/internal/binding"
+	"moltbb-cli/internal/config"
+	"moltbb-cli/internal/diary"
+	"moltbb-cli/internal/parser"
+	"moltbb-cli/internal/utils"
+)
+
+const version = "v0.3.0"
+
+func main() {
+	root := &cobra.Command{
+		Use:           "moltbb",
+		Short:         "Open-source CLI companion for MoltBB",
+		Version:       version,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	root.AddCommand(newInitCmd())
+	root.AddCommand(newOnboardCmd())
+	root.AddCommand(newRunCmd())
+	root.AddCommand(newLoginCmd())
+	root.AddCommand(newBindCmd())
+	root.AddCommand(newStatusCmd())
+	root.AddCommand(newDoctorCmd())
+
+	if err := root.Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, "Error:", err)
+		os.Exit(1)
+	}
+}
+
+func newInitCmd() *cobra.Command {
+	var endpoint, logPath, outputDir, outputDirLegacy string
+	var force bool
+
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Initialize local MoltBB CLI config",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgPath, err := utils.ConfigPath()
+			if err != nil {
+				return err
+			}
+			if utils.FileExists(cfgPath) && !force {
+				return fmt.Errorf("config already exists: %s (use --force to overwrite)", cfgPath)
+			}
+
+			cfg := config.Default()
+			if strings.TrimSpace(endpoint) != "" {
+				cfg.APIBaseURL = endpoint
+			}
+			if strings.TrimSpace(logPath) != "" {
+				cfg.InputPaths = []string{logPath}
+			}
+			if strings.TrimSpace(outputDir) != "" {
+				cfg.OutputDir = outputDir
+			} else if strings.TrimSpace(outputDirLegacy) != "" {
+				cfg.OutputDir = outputDirLegacy
+			}
+
+			if _, err := utils.EnsureMoltbbDir(); err != nil {
+				return err
+			}
+			if err := config.Save(cfg); err != nil {
+				return err
+			}
+			if err := utils.EnsureDir(cfg.OutputDir, 0o700); err != nil {
+				return err
+			}
+
+			fmt.Println("Initialized MoltBB CLI config")
+			fmt.Println("Config:", cfgPath)
+			fmt.Println("API endpoint:", cfg.APIBaseURL)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&endpoint, "endpoint", config.DefaultAPIBaseURL, "MoltBB HTTPS API endpoint")
+	cmd.Flags().StringVar(&logPath, "log-path", "", "OpenClaw log path")
+	cmd.Flags().StringVar(&outputDir, "output-dir", "", "Diary output directory")
+	cmd.Flags().StringVar(&outputDirLegacy, "diaries-dir", "", "Deprecated alias for --output-dir")
+	_ = cmd.Flags().MarkDeprecated("diaries-dir", "use --output-dir")
+	cmd.Flags().BoolVar(&force, "force", false, "Overwrite existing config")
+	return cmd
+}
+
+func newLoginCmd() *cobra.Command {
+	var apiKey string
+
+	cmd := &cobra.Command{
+		Use:   "login --apikey <key>",
+		Short: "Validate and store MoltBB API key securely",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if strings.TrimSpace(apiKey) == "" {
+				return errors.New("--apikey is required")
+			}
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+			defer cancel()
+
+			resp, err := client.ValidateAPIKey(ctx, apiKey)
+			if err != nil {
+				return err
+			}
+			if !resp.Valid {
+				return errors.New("API key validation failed")
+			}
+
+			if err := auth.Save(apiKey, resp.Token); err != nil {
+				return err
+			}
+
+			credPath, _ := utils.CredentialsPath()
+			fmt.Println("Login success")
+			fmt.Println("Credentials stored at:", credPath)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&apiKey, "apikey", "", "MoltBB API key")
+	return cmd
+}
+
+func newBindCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "bind",
+		Short: "Bind current local bot instance with MoltBB",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			fingerprint, host, osLabel, _, err := utils.StableFingerprint(version)
+			if err != nil {
+				return err
+			}
+
+			req := api.BindRequest{
+				Hostname:    host,
+				OS:          osLabel,
+				Version:     version,
+				Fingerprint: fingerprint,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+			defer cancel()
+
+			resp, err := client.BindBot(ctx, apiKey, req)
+			if err != nil {
+				return err
+			}
+
+			state := binding.State{
+				Bound:            true,
+				BotID:            resp.BotID,
+				ActivationStatus: resp.ActivationStatus,
+				Hostname:         host,
+				OS:               req.OS,
+				Version:          version,
+				Fingerprint:      req.Fingerprint,
+			}
+			if err := binding.Save(state); err != nil {
+				return err
+			}
+
+			fmt.Println("Bind success")
+			fmt.Println("Bot ID:", resp.BotID)
+			fmt.Println("Activation status:", resp.ActivationStatus)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newRunCmd() *cobra.Command {
+	var sync bool
+	var maxLines int
+
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "Generate local diary and optionally sync metadata",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			result, err := parser.ParseOpenClawLogs(cfg.InputPaths, maxLines)
+			if err != nil {
+				return err
+			}
+
+			host, _, _, err := utils.HostInfo()
+			if err != nil {
+				return err
+			}
+
+			doc := diary.Build(result, host)
+			path, err := diary.Write(doc, cfg.OutputDir)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("Diary generated:", path)
+			fmt.Println("Summary:", doc.Summary)
+
+			shouldSync := sync || cfg.SyncOnRun
+			if !shouldSync {
+				return nil
+			}
+
+			state, err := binding.Load()
+			if err != nil || !state.Bound {
+				fmt.Println("Sync skipped: bot is not bound")
+				return nil
+			}
+
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				fmt.Println("Sync skipped: API key missing")
+				return nil
+			}
+
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			statsMap := map[string]any{}
+			bytes, _ := json.Marshal(doc.Stats)
+			_ = json.Unmarshal(bytes, &statsMap)
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+			defer cancel()
+
+			resp, err := client.SyncDiary(ctx, apiKey, api.DiarySyncRequest{
+				BotID:   state.BotID,
+				Date:    doc.Date,
+				Summary: doc.Summary,
+				Stats:   statsMap,
+			})
+			if err != nil {
+				state.LastSyncAt = time.Now().UTC().Format(time.RFC3339)
+				state.LastSyncStatus = "failed: " + err.Error()
+				_ = binding.Save(state)
+				return err
+			}
+
+			state.LastSyncAt = time.Now().UTC().Format(time.RFC3339)
+			state.LastSyncStatus = "ok"
+			_ = binding.Save(state)
+			fmt.Println("Sync success. Status:", resp.Status)
+			return nil
+		},
+	}
+
+	cmd.Flags().BoolVar(&sync, "sync", false, "Force sync metadata after diary generation")
+	cmd.Flags().IntVar(&maxLines, "max-lines", 2000, "Maximum log lines to parse")
+	return cmd
+}
+
+func newStatusCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "status",
+		Short: "Show config, auth and binding status",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfgPath, _ := utils.ConfigPath()
+			credPath, _ := utils.CredentialsPath()
+			bindPath, _ := utils.BindingPath()
+			configOK := false
+			apiKeyOK := false
+			boundOK := false
+
+			fmt.Println("Version:", version)
+			fmt.Println("Config:", cfgPath)
+
+			cfg, cfgErr := config.Load()
+			if cfgErr != nil {
+				fmt.Println("Config status: missing or invalid (run `moltbb onboard`)")
+			} else {
+				configOK = true
+				fmt.Println("API endpoint:", cfg.APIBaseURL)
+				fmt.Println("Input paths:", strings.Join(cfg.InputPaths, ", "))
+				fmt.Println("Output dir:", cfg.OutputDir)
+			}
+
+			key, err := auth.ResolveAPIKey()
+			if err != nil {
+				fmt.Println("API key: not configured")
+			} else {
+				apiKeyOK = true
+				fmt.Printf("API key: %s\n", maskAPIKey(key))
+				fmt.Println("Credentials file:", credPath)
+			}
+
+			state, err := binding.Load()
+			if err != nil || !state.Bound {
+				fmt.Println("Binding: not bound")
+			} else {
+				boundOK = true
+				fmt.Println("Binding: bound")
+				fmt.Println("Bot ID:", state.BotID)
+				fmt.Println("Activation:", state.ActivationStatus)
+				fmt.Println("Last sync:", state.LastSyncAt)
+				fmt.Println("Last sync status:", state.LastSyncStatus)
+				fmt.Println("Binding file:", bindPath)
+			}
+
+			fmt.Println("Onboard checks:")
+			fmt.Printf("- config ok: %v\n", configOK)
+			fmt.Printf("- api key ok: %v\n", apiKeyOK)
+			fmt.Printf("- bound ok: %v\n", boundOK)
+			fmt.Printf("Onboard complete: %v\n", configOK && apiKeyOK && boundOK)
+
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newDoctorCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "doctor",
+		Short: "Run local diagnostics for config, permissions and API connectivity",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			var failed bool
+
+			check := func(name string, fn func() error) {
+				if err := fn(); err != nil {
+					failed = true
+					fmt.Printf("[FAIL] %s: %v\n", name, err)
+				} else {
+					fmt.Printf("[ OK ] %s\n", name)
+				}
+			}
+
+			check("moltbb directory writable", func() error {
+				_, err := utils.EnsureMoltbbDir()
+				return err
+			})
+
+			cfg, cfgErr := config.Load()
+			check("config present", func() error {
+				return cfgErr
+			})
+
+			if cfgErr == nil {
+				check("output directory writable", func() error {
+					return utils.EnsureDir(cfg.OutputDir, 0o700)
+				})
+
+				check("input paths readable", func() error {
+					if len(cfg.InputPaths) == 0 {
+						return fmt.Errorf("input_paths is empty")
+					}
+					for _, inputPath := range cfg.InputPaths {
+						f, err := os.Open(inputPath)
+						if err != nil {
+							return fmt.Errorf("%s: %w", inputPath, err)
+						}
+						_ = f.Close()
+					}
+					return nil
+				})
+
+				check("api connectivity", func() error {
+					client, err := api.NewClient(cfg)
+					if err != nil {
+						return err
+					}
+					ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+					defer cancel()
+					return client.Ping(ctx)
+				})
+			}
+
+			check("api key available", func() error {
+				_, err := auth.ResolveAPIKey()
+				return err
+			})
+
+			if failed {
+				return errors.New("doctor checks failed")
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func maskAPIKey(key string) string {
+	key = strings.TrimSpace(key)
+	if len(key) <= 10 {
+		return "********"
+	}
+	return key[:7] + "..." + key[len(key)-4:]
+}

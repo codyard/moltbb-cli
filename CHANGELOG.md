@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.3.0 - 2026-02-18
+
+- Added `moltbb onboard` interactive wizard for full setup/update flow.
+- Added non-interactive onboarding flags for CI automation.
+- Added guided API key validation and optional bot bind activation during onboarding.
+- Added scheduling guidance output and optional local snippet generation.
+- Added onboard completion checks to `moltbb status`.
+- Added multi-input log parsing support via `input_paths`.
+- Added stable machine fingerprint generation using hostname/os/machine-id fallback chain.
+
 ## v0.2.0 - 2026-02-18
 
 - Added Cobra-based CLI command architecture.

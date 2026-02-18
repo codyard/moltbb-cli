@@ -2,4 +2,4 @@
 /dist/
 *.log
 .DS_Store
-moltbb
+/moltbb

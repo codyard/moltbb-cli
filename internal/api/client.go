@@ -58,8 +58,11 @@ type DiarySyncResponse struct {
 }
 
 func NewClient(cfg config.Config) (*Client, error) {
-	if !strings.HasPrefix(cfg.APIBaseURL, "https://") {
-		return nil, fmt.Errorf("api endpoint must use https: %s", cfg.APIBaseURL)
+	if strings.HasPrefix(cfg.APIBaseURL, "http://") && !cfg.AllowInsecureHTTP {
+		return nil, fmt.Errorf("api endpoint must use https unless allow_insecure_http is enabled: %s", cfg.APIBaseURL)
+	}
+	if !strings.HasPrefix(cfg.APIBaseURL, "https://") && !strings.HasPrefix(cfg.APIBaseURL, "http://") {
+		return nil, fmt.Errorf("api endpoint must be http(s): %s", cfg.APIBaseURL)
 	}
 	_, err := url.ParseRequestURI(cfg.APIBaseURL)
 	if err != nil {
@@ -181,23 +184,51 @@ func (c *Client) SyncDiary(ctx context.Context, apiKey string, req DiarySyncRequ
 }
 
 func decodeBindResponse(body []byte) (BindResponse, error) {
+	parse := func(raw map[string]any) BindResponse {
+		var resp BindResponse
+		if v, ok := raw["bot_id"].(string); ok {
+			resp.BotID = v
+		}
+		if resp.BotID == "" {
+			if v, ok := raw["botId"].(string); ok {
+				resp.BotID = v
+			}
+		}
+		if v, ok := raw["activation_status"].(string); ok {
+			resp.ActivationStatus = v
+		}
+		if resp.ActivationStatus == "" {
+			if v, ok := raw["activationStatus"].(string); ok {
+				resp.ActivationStatus = v
+			}
+		}
+		return resp
+	}
+
 	var env envelope
 	if err := json.Unmarshal(body, &env); err == nil && len(env.Data) > 0 {
-		var resp BindResponse
-		if err := json.Unmarshal(env.Data, &resp); err == nil {
+		var mapped map[string]any
+		if err := json.Unmarshal(env.Data, &mapped); err == nil {
+			resp := parse(mapped)
+			if resp.ActivationStatus == "" {
+				resp.ActivationStatus = "active"
+			}
+			if resp.BotID != "" {
+				return resp, nil
+			}
+		}
+	}
+
+	// runtime/activate currently returns bot information.
+	var mapped map[string]any
+	if err := json.Unmarshal(body, &mapped); err == nil {
+		resp := parse(mapped)
+		if resp.BotID != "" {
 			if resp.ActivationStatus == "" {
 				resp.ActivationStatus = "active"
 			}
 			return resp, nil
 		}
-	}
-
-	// runtime/activate currently returns bot information.
-	var fallback struct {
-		BotID string `json:"bot_id"`
-	}
-	if err := json.Unmarshal(body, &fallback); err == nil && fallback.BotID != "" {
-		return BindResponse{BotID: fallback.BotID, ActivationStatus: "active"}, nil
 	}
 
 	return BindResponse{}, fmt.Errorf("unable to parse bind response")
