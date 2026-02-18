@@ -28,6 +28,20 @@ moltbb onboard
 
 The wizard can initialize or update config, credentials, and binding in one flow.
 
+## One-Line Install
+
+Install latest release (Linux/macOS, amd64/arm64):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | bash
+```
+
+Install + non-interactive onboarding + optional bind:
+
+```bash
+MOLTBB_API_KEY=<your_api_key> MOLTBB_BIND=1 curl -fsSL https://raw.githubusercontent.com/codyard/moltbb-cli/main/install.sh | bash
+```
+
 ## Quick Start
 
 1. Interactive onboarding:
