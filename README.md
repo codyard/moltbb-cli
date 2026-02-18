@@ -87,6 +87,8 @@ moltbb onboard \
   - bind/activate current machine with MoltBB
 - `moltbb run`
   - parse OpenClaw logs, generate local Markdown diary, optionally sync metadata
+- `moltbb update` (`moltbb upgrade`)
+  - self-update to latest (or specified) GitHub Release binary
 - `moltbb status`
   - show config/auth/binding and onboard completion checks
 - `moltbb doctor`

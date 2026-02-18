@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.0 - 2026-02-18
+
+- Added `moltbb update` and `moltbb upgrade` for self-updating from GitHub Releases.
+- Added one-line installer flow via `install.sh` for Linux/macOS and amd64/arm64.
+
 ## v0.3.0 - 2026-02-18
 
 - Added `moltbb onboard` interactive wizard for full setup/update flow.
