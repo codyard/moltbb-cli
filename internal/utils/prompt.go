@@ -31,26 +31,29 @@ func PromptYesNo(reader *bufio.Reader, label string, defaultYes bool) (bool, err
 	if defaultYes {
 		defaultText = "Y/n"
 	}
-	fmt.Printf("%s [%s]: ", label, defaultText)
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return false, err
+
+	for {
+		fmt.Printf("%s [%s]: ", label, defaultText)
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return false, err
+		}
+		line = strings.TrimSpace(strings.ToLower(line))
+		if line == "" {
+			return defaultYes, nil
+		}
+		if line == "y" || line == "yes" {
+			return true, nil
+		}
+		if line == "n" || line == "no" {
+			return false, nil
+		}
+		fmt.Println("Please enter y or n.")
 	}
-	line = strings.TrimSpace(strings.ToLower(line))
-	if line == "" {
-		return defaultYes, nil
-	}
-	if line == "y" || line == "yes" {
-		return true, nil
-	}
-	if line == "n" || line == "no" {
-		return false, nil
-	}
-	return false, fmt.Errorf("invalid input: %s", line)
 }
 
 func PromptSecret(reader *bufio.Reader, label string) (string, error) {
-	fmt.Printf("%s: ", label)
+	fmt.Printf("%s (input hidden): ", label)
 	if term.IsTerminal(int(os.Stdin.Fd())) {
 		bytes, err := term.ReadPassword(int(os.Stdin.Fd()))
 		fmt.Println()

@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.4.2 - 2026-02-18
+
+- Improved onboarding prompt UX:
+  - yes/no prompts now reprompt instead of exiting on invalid input,
+  - prompt input is no longer echoed back on invalid answers,
+  - API key prompt now clearly indicates hidden input mode.
+
 ## v0.4.1 - 2026-02-18
 
 - Fixed installer cleanup trap to avoid `tmp_dir: unbound variable` under `set -u`.
