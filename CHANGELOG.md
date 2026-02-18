@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.4.1 - 2026-02-18
+
+- Fixed installer cleanup trap to avoid `tmp_dir: unbound variable` under `set -u`.
+- Updated one-line install docs to pass environment variables to `bash` in pipe mode.
+
 ## v0.4.0 - 2026-02-18
 
 - Added `moltbb update` and `moltbb upgrade` for self-updating from GitHub Releases.
