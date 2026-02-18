@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.3 - 2026-02-18
+
+- Improved non-interactive onboarding with `--bind`:
+  - if `/api/v1/auth/validate` fails or is unavailable, CLI now tries bind as fallback validation,
+  - surfaced clearer error details for validation failures.
+
 ## v0.4.2 - 2026-02-18
 
 - Improved onboarding prompt UX:

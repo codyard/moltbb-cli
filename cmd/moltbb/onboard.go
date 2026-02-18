@@ -215,7 +215,11 @@ func runOnboardInteractive(opts onboardOptions, cfg config.Config, existingCred 
 				break
 			}
 
-			fmt.Println("API key validation failed.")
+			if validateErr != nil {
+				fmt.Printf("API key validation failed: %v\n", validateErr)
+			} else {
+				fmt.Println("API key validation failed: API reported key as invalid.")
+			}
 			retry, retryErr := utils.PromptYesNo(reader, "Retry API key input?", true)
 			if retryErr != nil {
 				return retryErr
@@ -369,19 +373,45 @@ func runOnboardNonInteractive(opts onboardOptions, cfg config.Config, cfgExists 
 	}
 
 	keyReady := false
+	bindPerformedByFallback := false
 	if apiKey != "" {
 		resp, validateErr := validateAPIKey(client, cfg, apiKey)
 		if validateErr != nil || !resp.Valid {
-			return fmt.Errorf("api key validation failed in non-interactive mode")
+			if opts.bind {
+				state, bindErr := bindMachine(client, cfg, apiKey)
+				if bindErr != nil {
+					if validateErr != nil {
+						return fmt.Errorf("api key validation failed (%v), and bind fallback failed (%w)", validateErr, bindErr)
+					}
+					return fmt.Errorf("api key marked invalid by validate endpoint, and bind fallback failed (%w)", bindErr)
+				}
+				if saveErr := auth.Save(apiKey, ""); saveErr != nil {
+					return saveErr
+				}
+				if saveErr := binding.Save(state); saveErr != nil {
+					return saveErr
+				}
+				keyReady = true
+				bindPerformedByFallback = true
+				fmt.Println("Validation endpoint failed or unavailable, but bind succeeded. Continuing.")
+			} else {
+				if validateErr != nil {
+					return fmt.Errorf("api key validation failed in non-interactive mode: %w", validateErr)
+				}
+				return errors.New("api key validation failed in non-interactive mode: API reported key as invalid")
+			}
+		} else {
+			if saveErr := auth.Save(apiKey, resp.Token); saveErr != nil {
+				return saveErr
+			}
+			keyReady = true
 		}
-		if saveErr := auth.Save(apiKey, resp.Token); saveErr != nil {
-			return saveErr
-		}
-		keyReady = true
 	}
 
 	bound := existingBinding != nil && existingBinding.Bound
-	if opts.bind {
+	if bindPerformedByFallback {
+		bound = true
+	} else if opts.bind {
 		if !keyReady {
 			return errors.New("--bind requires a valid API key (--apikey or existing credentials)")
 		}
