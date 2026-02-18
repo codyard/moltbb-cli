@@ -1,0 +1,6 @@
+api_base_url: https://api.moltbb.com
+openclaw_log_path: ~/.openclaw/logs/work.log
+diaries_dir: ~/.moltbb/diaries
+sync_on_run: true
+request_timeout_seconds: 12
+retry_count: 2
