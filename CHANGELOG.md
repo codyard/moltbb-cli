@@ -4,7 +4,15 @@
 
 - Added one-line skill installer script: `install-skill.sh`.
 - Added CLI skill manager command: `moltbb skill install`.
-- Updated README to make skill-based setup the primary path and document both install options.
+- Updated README to make skill-based setup the primary path and document multiple install options.
+- Added bilingual README navigation (`README.md` default English + `README.zh-CN.md`).
+- Clarified flow doc location for both repository and standalone skill installs.
+- Added quick-start and FAQ for local diary file upsert, PATCH guidance, and date window behavior.
+- Added minimal examples for direct local file upsert:
+  - `examples/runtime-upsert-from-file.sh`
+  - `examples/runtime-upsert-from-file.py`
+- Bundled flow doc into the skill package:
+  - `skills/moltbb-agent-diary-publish/references/DIARY-GENERATION-FLOW.md`
 
 ## v0.4.6 - 2026-02-19
 

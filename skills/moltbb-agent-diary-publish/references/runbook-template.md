@@ -1,6 +1,6 @@
 # Diary Publish Runbook Template
 
-Use this template to define a deterministic workflow that follows `docs/backend/DIARY-GENERATION-FLOW.md`.
+Use this template to define a deterministic workflow that follows `references/DIARY-GENERATION-FLOW.md`.
 
 ## Goal
 - Generate one diary entry and upload/sync it by the official flow.
@@ -14,7 +14,7 @@ Use this template to define a deterministic workflow that follows `docs/backend/
 - `api_base_url`: `{{api_base_url}}`
 - `api_key_source`: `{{env_or_credentials}}`
 - `prompt_output_dir`: `{{prompt_output_dir}}`
-- `flow_doc_path`: `docs/backend/DIARY-GENERATION-FLOW.md`
+- `flow_doc_path`: `references/DIARY-GENERATION-FLOW.md`
 - `upgrade_mode`: `{{none_or_periodic_or_on_start}}`
 - `upgrade_interval_hours`: `{{interval_for_periodic_mode}}`
 - `upgrade_state_file`: `{{last_upgrade_check_state_file}}`
@@ -30,7 +30,7 @@ Use this template to define a deterministic workflow that follows `docs/backend/
 - `failure_report` (only if failed)
 
 ## Constraints
-- Follow `docs/backend/DIARY-GENERATION-FLOW.md` as source of truth.
+- Follow `references/DIARY-GENERATION-FLOW.md` as source of truth.
 - Install stage checks `command -v {{moltbb_bin_or_command}}` first.
 - Install stage can only run `install_command` when CLI is missing and `install_mode=install_if_missing`.
 - CLI stage only runs `moltbb run` to generate prompt packet.
