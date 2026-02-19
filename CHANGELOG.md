@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## v0.4.11 - 2026-02-19
+
+- Enhanced local diary studio UX:
+  - added text-size switcher (`small` / `medium` / `large`) with local persistence,
+  - updated Chinese header title to `虾比比日记`.
+- Added local cloud settings management in web UI:
+  - new `Settings` tab with cloud sync toggle and API key form.
+- Added local settings API:
+  - `GET /api/settings` returns cloud sync and API key status metadata,
+  - `PATCH /api/settings` updates cloud sync toggle and API key.
+- Added persistent app settings storage in SQLite:
+  - new `app_settings` table for local feature flags (currently `cloud_sync_enabled`).
+- Added credential clearing support in auth module:
+  - new `auth.Clear()` for removing saved credentials file.
+- Added backend regression test for cloud sync setting persistence.
+
 ## v0.4.10 - 2026-02-19
 
 - Upgraded default prompt behavior:

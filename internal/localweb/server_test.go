@@ -216,3 +216,65 @@ func TestDiariesOrderedByDiaryDateDesc(t *testing.T) {
 		t.Fatalf("expected second diary date 2026-02-10, got %s", response.Items[1].Date)
 	}
 }
+
+func TestSettingsCloudSyncToggle(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list settings status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var initial settingsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &initial); err != nil {
+		t.Fatalf("decode initial settings: %v", err)
+	}
+	if initial.CloudSyncEnabled {
+		t.Fatal("expected cloud sync disabled by default")
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPatch, "/api/settings", strings.NewReader(`{"cloudSyncEnabled":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch settings status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var updated settingsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode updated settings: %v", err)
+	}
+	if !updated.CloudSyncEnabled {
+		t.Fatal("expected cloud sync enabled after patch")
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/settings", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list settings status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var final settingsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &final); err != nil {
+		t.Fatalf("decode final settings: %v", err)
+	}
+	if !final.CloudSyncEnabled {
+		t.Fatal("expected cloud sync enabled after reload")
+	}
+}

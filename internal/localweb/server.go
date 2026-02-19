@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"moltbb-cli/internal/auth"
 	"moltbb-cli/internal/diary"
 	"moltbb-cli/internal/utils"
 )
@@ -26,6 +27,8 @@ var staticFS embed.FS
 
 var diaryDateRe = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}\b`)
 var diaryLabelDateRe = regexp.MustCompile(`(?im)^\s*(?:[-*]\s*)?(?:date|日期)\s*:\s*(\d{4}-\d{2}-\d{2})\s*$`)
+
+const settingKeyCloudSyncEnabled = "cloud_sync_enabled"
 
 type Options struct {
 	DiaryDir   string
@@ -77,6 +80,18 @@ type stateResponse struct {
 	DiaryCount    int    `json:"diaryCount"`
 	APIBaseURL    string `json:"apiBaseUrl"`
 	DefaultOutput string `json:"defaultOutput"`
+}
+
+type settingsResponse struct {
+	CloudSyncEnabled bool   `json:"cloudSyncEnabled"`
+	APIKeyConfigured bool   `json:"apiKeyConfigured"`
+	APIKeyMasked     string `json:"apiKeyMasked,omitempty"`
+	APIKeySource     string `json:"apiKeySource,omitempty"`
+}
+
+type settingsUpdateRequest struct {
+	CloudSyncEnabled *bool   `json:"cloudSyncEnabled,omitempty"`
+	APIKey           *string `json:"apiKey,omitempty"`
 }
 
 type generatePacketRequest struct {
@@ -181,6 +196,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 	s.mux.HandleFunc("/api/state", s.handleState)
+	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/diaries", s.handleDiaries)
 	s.mux.HandleFunc("/api/diaries/reindex", s.handleReindex)
 	s.mux.HandleFunc("/api/diaries/", s.handleDiaryByID)
@@ -245,6 +261,63 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		APIBaseURL:    s.apiBaseURL,
 		DefaultOutput: s.diaryDir,
 	})
+}
+
+func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		settings, err := s.readSettings()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	case http.MethodPatch:
+		var req settingsUpdateRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		if req.CloudSyncEnabled == nil && req.APIKey == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "at least one setting is required"})
+			return
+		}
+
+		if req.CloudSyncEnabled != nil {
+			if err := s.setCloudSyncEnabled(*req.CloudSyncEnabled); err != nil {
+				writeError(w, http.StatusInternalServerError, err)
+				return
+			}
+		}
+		if req.APIKey != nil {
+			apiKey := strings.TrimSpace(*req.APIKey)
+			if apiKey == "" {
+				if err := auth.Clear(); err != nil {
+					writeError(w, http.StatusInternalServerError, err)
+					return
+				}
+			} else {
+				token := ""
+				if existing, err := auth.Load(); err == nil {
+					token = existing.Token
+				}
+				if err := auth.Save(apiKey, token); err != nil {
+					writeError(w, http.StatusInternalServerError, err)
+					return
+				}
+			}
+		}
+
+		settings, err := s.readSettings()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, settings)
+	default:
+		w.Header().Set("Allow", "GET, PATCH")
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
 }
 
 func (s *Server) handleReindex(w http.ResponseWriter, r *http.Request) {
@@ -517,6 +590,99 @@ func (s *Server) handleGeneratePacket(w http.ResponseWriter, r *http.Request) {
 		Hints:      hints,
 		Summary:    diary.AgentManagedSummary(len(hints)),
 	})
+}
+
+func (s *Server) readSettings() (settingsResponse, error) {
+	cloudSyncEnabled, err := s.getCloudSyncEnabled()
+	if err != nil {
+		return settingsResponse{}, err
+	}
+
+	configured, masked, source, err := s.resolveAPIKeyState()
+	if err != nil {
+		return settingsResponse{}, err
+	}
+
+	return settingsResponse{
+		CloudSyncEnabled: cloudSyncEnabled,
+		APIKeyConfigured: configured,
+		APIKeyMasked:     masked,
+		APIKeySource:     source,
+	}, nil
+}
+
+func (s *Server) getCloudSyncEnabled() (bool, error) {
+	row := s.db.QueryRow(`SELECT value FROM app_settings WHERE key = ?`, settingKeyCloudSyncEnabled)
+
+	var raw string
+	if err := row.Scan(&raw); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, fmt.Errorf("query cloud sync setting: %w", err)
+	}
+
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "1", "true", "yes", "on":
+		return true, nil
+	default:
+		return false, nil
+	}
+}
+
+func (s *Server) setCloudSyncEnabled(enabled bool) error {
+	value := "0"
+	if enabled {
+		value = "1"
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err := s.db.Exec(`
+INSERT INTO app_settings(key, value, updated_at)
+VALUES(?, ?, ?)
+ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+`, settingKeyCloudSyncEnabled, value, now)
+	if err != nil {
+		return fmt.Errorf("save cloud sync setting: %w", err)
+	}
+	return nil
+}
+
+func (s *Server) resolveAPIKeyState() (configured bool, masked string, source string, err error) {
+	if envKey := strings.TrimSpace(os.Getenv("MOLTBB_API_KEY")); envKey != "" {
+		return true, maskAPIKey(envKey), "env", nil
+	}
+
+	credentialsPath, err := utils.CredentialsPath()
+	if err != nil {
+		return false, "", "", err
+	}
+	if !utils.FileExists(credentialsPath) {
+		return false, "", "", nil
+	}
+
+	credentials, err := auth.Load()
+	if err != nil {
+		return false, "", "", fmt.Errorf("load credentials: %w", err)
+	}
+	apiKey := strings.TrimSpace(credentials.APIKey)
+	if apiKey == "" {
+		return false, "", "", nil
+	}
+	return true, maskAPIKey(apiKey), "credentials", nil
+}
+
+func maskAPIKey(input string) string {
+	key := strings.TrimSpace(input)
+	if key == "" {
+		return ""
+	}
+	runes := []rune(key)
+	if len(runes) <= 6 {
+		return strings.Repeat("*", len(runes))
+	}
+	head := string(runes[:3])
+	tail := string(runes[len(runes)-3:])
+	return head + strings.Repeat("*", len(runes)-6) + tail
 }
 
 func (s *Server) loadDiaryDetail(id string) (diaryDetail, bool, error) {

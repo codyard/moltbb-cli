@@ -1,5 +1,7 @@
 const LOCALE_STORAGE_KEY = 'moltbb.localweb.locale';
+const FONT_SIZE_STORAGE_KEY = 'moltbb.localweb.font_size';
 const SUPPORTED_LOCALES = ['en', 'zh-Hans'];
+const SUPPORTED_FONT_SIZES = ['small', 'medium', 'large'];
 
 const MESSAGES = {
   en: {
@@ -7,12 +9,17 @@ const MESSAGES = {
     'topbar.title': 'Diary Studio',
     'topbar.subtitle': 'Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.',
     'lang.label': 'Language',
+    'font.label': 'Text Size',
+    'font.small': 'Small',
+    'font.medium': 'Medium',
+    'font.large': 'Large',
     'stats.diaries': 'Diaries',
     'stats.prompts': 'Prompts',
     'stats.active': 'Active',
     'tabs.diaries': 'Diaries',
     'tabs.prompts': 'Prompts',
     'tabs.generate': 'Generate Packet',
+    'tabs.settings': 'Settings',
     'actions.refresh': 'Refresh',
     'actions.reindex': 'Reindex',
     'actions.new': 'New',
@@ -20,6 +27,8 @@ const MESSAGES = {
     'actions.setActive': 'Set Active',
     'actions.delete': 'Delete',
     'actions.generate': 'Generate',
+    'actions.saveSettings': 'Save Settings',
+    'actions.clearApiKey': 'Clear API Key',
     'diary.listTitle': 'Diary List',
     'diary.detailTitle': 'Diary Detail',
     'diary.searchPlaceholder': 'Search by title / date / filename',
@@ -68,6 +77,24 @@ const MESSAGES = {
     'generate.noPacket': 'No packet generated yet.',
     'generate.generated': 'Prompt packet generated: {path}',
     'generate.failed': 'Generate failed: {message}',
+    'settings.title': 'Cloud Settings',
+    'settings.cloudSync': 'Enable cloud sync',
+    'settings.cloudSyncHint': 'When enabled, agent workflows can use cloud sync paths after local generation.',
+    'settings.apiKey': 'API Key',
+    'settings.apiKeyPlaceholder': 'Leave empty to keep unchanged',
+    'settings.apiKeyNotConfigured': 'API key is not configured.',
+    'settings.apiKeyConfigured': 'Configured: {masked}',
+    'settings.apiKeyConfiguredWithSource': 'Configured ({source}): {masked}',
+    'settings.apiKeySourceEnv': 'Environment variable',
+    'settings.apiKeySourceCredentials': 'Credentials file',
+    'settings.metaSyncOn': 'Cloud sync: ON',
+    'settings.metaSyncOff': 'Cloud sync: OFF',
+    'settings.saved': 'Settings saved.',
+    'settings.cleared': 'API key cleared.',
+    'settings.clearConfirm': 'Clear saved API key?',
+    'settings.loadFailed': 'Load settings failed: {message}',
+    'settings.saveFailed': 'Save settings failed: {message}',
+    'settings.clearFailed': 'Clear API key failed: {message}',
     'reindex.done': 'Reindex completed: {count} diaries.',
     'reindex.failed': 'Reindex failed: {message}',
     'status.loading': 'Loading...',
@@ -78,15 +105,20 @@ const MESSAGES = {
   },
   'zh-Hans': {
     'page.title': 'MoltBB 本地日记工作台',
-    'topbar.title': '日记工作台',
+    'topbar.title': '虾比比日记',
     'topbar.subtitle': '浏览本地日记、管理提示词模板，并在不走云同步的情况下生成提示词数据包。',
     'lang.label': '语言',
+    'font.label': '文字大小',
+    'font.small': '小',
+    'font.medium': '中',
+    'font.large': '大',
     'stats.diaries': '日记',
     'stats.prompts': '模板',
     'stats.active': '当前激活',
     'tabs.diaries': '日记',
     'tabs.prompts': '提示词',
     'tabs.generate': '生成数据包',
+    'tabs.settings': '设置',
     'actions.refresh': '刷新',
     'actions.reindex': '重建索引',
     'actions.new': '新建',
@@ -94,6 +126,8 @@ const MESSAGES = {
     'actions.setActive': '设为激活',
     'actions.delete': '删除',
     'actions.generate': '生成',
+    'actions.saveSettings': '保存设置',
+    'actions.clearApiKey': '清除 API Key',
     'diary.listTitle': '日记列表',
     'diary.detailTitle': '日记详情',
     'diary.searchPlaceholder': '按标题 / 日期 / 文件名搜索',
@@ -142,6 +176,24 @@ const MESSAGES = {
     'generate.noPacket': '尚未生成数据包。',
     'generate.generated': '已生成提示词数据包: {path}',
     'generate.failed': '生成失败: {message}',
+    'settings.title': '云同步设置',
+    'settings.cloudSync': '启用云同步',
+    'settings.cloudSyncHint': '启用后，Agent 工作流可在本地生成后继续走云端同步路径。',
+    'settings.apiKey': 'API Key',
+    'settings.apiKeyPlaceholder': '留空表示保持不变',
+    'settings.apiKeyNotConfigured': 'API Key 未配置。',
+    'settings.apiKeyConfigured': '已配置: {masked}',
+    'settings.apiKeyConfiguredWithSource': '已配置（{source}）: {masked}',
+    'settings.apiKeySourceEnv': '环境变量',
+    'settings.apiKeySourceCredentials': '本地凭据文件',
+    'settings.metaSyncOn': '云同步：已开启',
+    'settings.metaSyncOff': '云同步：已关闭',
+    'settings.saved': '设置已保存。',
+    'settings.cleared': 'API Key 已清除。',
+    'settings.clearConfirm': '确认清除已保存的 API Key 吗？',
+    'settings.loadFailed': '加载设置失败: {message}',
+    'settings.saveFailed': '保存设置失败: {message}',
+    'settings.clearFailed': '清除 API Key 失败: {message}',
     'reindex.done': '索引重建完成: {count} 篇日记。',
     'reindex.failed': '重建索引失败: {message}',
     'status.loading': '加载中...',
@@ -162,7 +214,9 @@ const state = {
   diaryViewMode: 'raw',
   currentDiaryDetail: null,
   currentPromptDetail: null,
+  settings: null,
   locale: 'en',
+  fontSize: 'small',
   hasGeneratedPacket: false,
 };
 
@@ -192,6 +246,17 @@ function resolveLocale(raw) {
     return 'zh-Hans';
   }
   return 'en';
+}
+
+function resolveFontSize(raw) {
+  if (typeof raw !== 'string') {
+    return 'small';
+  }
+  const trimmed = raw.trim().toLowerCase();
+  if (SUPPORTED_FONT_SIZES.includes(trimmed)) {
+    return trimmed;
+  }
+  return 'small';
 }
 
 function messageFor(locale, key) {
@@ -483,6 +548,52 @@ async function loadState() {
   }
 }
 
+function apiKeySourceLabel(source) {
+  if (source === 'env') {
+    return t('settings.apiKeySourceEnv');
+  }
+  if (source === 'credentials') {
+    return t('settings.apiKeySourceCredentials');
+  }
+  return source || '';
+}
+
+function renderSettings() {
+  const cloudSwitch = el('settingCloudSync');
+  const apiKeyStatus = el('settingsApiKeyStatus');
+  const meta = el('settingsMeta');
+  if (!cloudSwitch || !apiKeyStatus || !meta) {
+    return;
+  }
+
+  if (!state.settings) {
+    cloudSwitch.checked = false;
+    apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
+    meta.textContent = t('settings.metaSyncOff');
+    return;
+  }
+
+  cloudSwitch.checked = !!state.settings.cloudSyncEnabled;
+  meta.textContent = state.settings.cloudSyncEnabled ? t('settings.metaSyncOn') : t('settings.metaSyncOff');
+
+  if (state.settings.apiKeyConfigured) {
+    const masked = state.settings.apiKeyMasked || '';
+    const sourceLabel = apiKeySourceLabel(state.settings.apiKeySource);
+    if (sourceLabel) {
+      apiKeyStatus.textContent = t('settings.apiKeyConfiguredWithSource', { source: sourceLabel, masked });
+    } else {
+      apiKeyStatus.textContent = t('settings.apiKeyConfigured', { masked });
+    }
+    return;
+  }
+  apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
+}
+
+async function loadSettings() {
+  state.settings = await api('/settings');
+  renderSettings();
+}
+
 function renderDiaryList(items) {
   const container = el('diaryList');
   if (!items.length) {
@@ -729,6 +840,43 @@ async function reindex() {
   await loadState();
 }
 
+async function saveSettings(event) {
+  event.preventDefault();
+
+  const payload = {
+    cloudSyncEnabled: !!el('settingCloudSync').checked,
+  };
+  const apiKey = el('settingApiKey').value.trim();
+  if (apiKey) {
+    payload.apiKey = apiKey;
+  }
+
+  const data = await api('/settings', {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  });
+  state.settings = data;
+  el('settingApiKey').value = '';
+  renderSettings();
+  setStatusKey('settings.saved');
+}
+
+async function clearApiKey() {
+  const yes = confirm(t('settings.clearConfirm'));
+  if (!yes) {
+    return;
+  }
+
+  const data = await api('/settings', {
+    method: 'PATCH',
+    body: JSON.stringify({ apiKey: '' }),
+  });
+  state.settings = data;
+  el('settingApiKey').value = '';
+  renderSettings();
+  setStatusKey('settings.cleared');
+}
+
 function applyStaticI18n() {
   document.title = t('page.title');
   document.documentElement.lang = state.locale;
@@ -768,6 +916,7 @@ function refreshLocalizedDynamicText() {
   }
 
   applyDiaryViewModeButton();
+  renderSettings();
 }
 
 function setLocale(locale, persist = true) {
@@ -794,6 +943,29 @@ function initLocale() {
   setLocale(locale, false);
 }
 
+function applyFontSize(size, persist = true) {
+  const next = resolveFontSize(size);
+  state.fontSize = next;
+  document.documentElement.setAttribute('data-font-size', next);
+  const picker = el('fontSizeSwitch');
+  if (picker && picker.value !== next) {
+    picker.value = next;
+  }
+  if (persist) {
+    window.localStorage.setItem(FONT_SIZE_STORAGE_KEY, next);
+  }
+}
+
+function initFontSize() {
+  const saved = window.localStorage.getItem(FONT_SIZE_STORAGE_KEY);
+  const fontSize = resolveFontSize(saved || 'small');
+  const picker = el('fontSizeSwitch');
+  if (picker) {
+    picker.value = fontSize;
+  }
+  applyFontSize(fontSize, false);
+}
+
 function bindEvents() {
   document.querySelectorAll('.tab-btn').forEach((btn) => {
     btn.addEventListener('click', () => switchTab(btn.dataset.tab));
@@ -801,6 +973,10 @@ function bindEvents() {
 
   el('langSwitch').addEventListener('change', (event) => {
     setLocale(event.target.value, true);
+  });
+
+  el('fontSizeSwitch').addEventListener('change', (event) => {
+    applyFontSize(event.target.value, true);
   });
 
   el('btnReload').addEventListener('click', async () => {
@@ -838,6 +1014,14 @@ function bindEvents() {
     generatePacket(event).catch((err) => setStatusKey('generate.failed', { message: err.message }, true));
   });
 
+  el('settingsForm').addEventListener('submit', (event) => {
+    saveSettings(event).catch((err) => setStatusKey('settings.saveFailed', { message: err.message }, true));
+  });
+
+  el('btnClearApiKey').addEventListener('click', () => {
+    clearApiKey().catch((err) => setStatusKey('settings.clearFailed', { message: err.message }, true));
+  });
+
   el('btnDiaryViewMode').addEventListener('click', () => {
     state.diaryViewMode = state.diaryViewMode === 'raw' ? 'markdown' : 'raw';
     renderDiaryContent();
@@ -849,6 +1033,7 @@ async function bootstrap() {
   await loadState();
   await loadDiaries();
   await loadPrompts();
+  await loadSettings();
   setStatusKey('status.ready');
 }
 
@@ -858,6 +1043,7 @@ function initDateDefault() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initFontSize();
   initLocale();
   bindEvents();
   initDateDefault();

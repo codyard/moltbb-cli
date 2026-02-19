@@ -13,6 +13,22 @@
   --radius: 18px;
 }
 
+html {
+  font-size: 16px;
+}
+
+html[data-font-size='small'] {
+  font-size: 16px;
+}
+
+html[data-font-size='medium'] {
+  font-size: 18px;
+}
+
+html[data-font-size='large'] {
+  font-size: 20px;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -121,7 +137,16 @@ h2 {
   justify-items: end;
 }
 
-.lang-switch {
+.topbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.52rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.lang-switch,
+.font-switch {
   display: inline-flex;
   align-items: center;
   gap: 0.48rem;
@@ -129,9 +154,10 @@ h2 {
   font-size: 0.8rem;
 }
 
-.lang-switch select {
+.lang-switch select,
+.font-switch select {
   width: auto;
-  min-width: 132px;
+  min-width: 96px;
   padding: 0.34rem 0.5rem;
 }
 
@@ -444,6 +470,10 @@ button.danger {
 
   .topbar-side {
     justify-items: start;
+  }
+
+  .topbar-controls {
+    justify-content: flex-start;
   }
 
   .card {

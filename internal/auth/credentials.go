@@ -64,6 +64,20 @@ func Save(apiKey, token string) error {
 	return utils.SecureWriteFile(path, data, 0o600)
 }
 
+func Clear() error {
+	path, err := utils.CredentialsPath()
+	if err != nil {
+		return err
+	}
+	if !utils.FileExists(path) {
+		return nil
+	}
+	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("remove credentials: %w", err)
+	}
+	return nil
+}
+
 func ResolveAPIKey() (string, error) {
 	if env := strings.TrimSpace(os.Getenv("MOLTBB_API_KEY")); env != "" {
 		return env, nil

@@ -44,6 +44,12 @@ CREATE TABLE IF NOT EXISTS diary_entries (
   indexed_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_diary_entries_date ON diary_entries(date);
 CREATE INDEX IF NOT EXISTS idx_diary_entries_modified_at ON diary_entries(modified_at);
 `

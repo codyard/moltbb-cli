@@ -19,13 +19,23 @@
           <p class="subtitle" data-i18n="topbar.subtitle">Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.</p>
         </div>
         <div class="topbar-side">
-          <label class="lang-switch">
-            <span data-i18n="lang.label">Language</span>
-            <select id="langSwitch">
-              <option value="en">English</option>
-              <option value="zh-Hans">简体中文</option>
-            </select>
-          </label>
+          <div class="topbar-controls">
+            <label class="lang-switch">
+              <span data-i18n="lang.label">Language</span>
+              <select id="langSwitch">
+                <option value="en">English</option>
+                <option value="zh-Hans">简体中文</option>
+              </select>
+            </label>
+            <label class="font-switch">
+              <span data-i18n="font.label">Text Size</span>
+              <select id="fontSizeSwitch">
+                <option value="small" data-i18n="font.small">Small</option>
+                <option value="medium" data-i18n="font.medium">Medium</option>
+                <option value="large" data-i18n="font.large">Large</option>
+              </select>
+            </label>
+          </div>
           <div class="stats" id="stateStats">
             <div><span data-i18n="stats.diaries">Diaries</span><strong id="statDiaries">-</strong></div>
             <div><span data-i18n="stats.prompts">Prompts</span><strong id="statPrompts">-</strong></div>
@@ -38,6 +48,7 @@
         <button class="tab-btn active" data-tab="diaries" data-i18n="tabs.diaries">Diaries</button>
         <button class="tab-btn" data-tab="prompts" data-i18n="tabs.prompts">Prompts</button>
         <button class="tab-btn" data-tab="generate" data-i18n="tabs.generate">Generate Packet</button>
+        <button class="tab-btn" data-tab="settings" data-i18n="tabs.settings">Settings</button>
         <button class="action-btn" id="btnReload" data-i18n="actions.refresh">Refresh</button>
       </section>
 
@@ -138,6 +149,32 @@
             </div>
           </form>
           <pre id="generateResult" class="content slim">No packet generated yet.</pre>
+        </article>
+      </section>
+
+      <section class="tab-panel" id="tab-settings">
+        <article class="panel card">
+          <div class="section-head">
+            <h2 data-i18n="settings.title">Cloud Settings</h2>
+            <span id="settingsMeta" class="muted"></span>
+          </div>
+          <form id="settingsForm" class="form-stack">
+            <label class="checkline">
+              <input id="settingCloudSync" type="checkbox" />
+              <span data-i18n="settings.cloudSync">Enable cloud sync</span>
+            </label>
+            <p class="muted" data-i18n="settings.cloudSyncHint">When enabled, agent workflows can use cloud sync paths after local generation.</p>
+
+            <label>
+              <span data-i18n="settings.apiKey">API Key</span>
+              <input id="settingApiKey" type="password" autocomplete="off" data-i18n-placeholder="settings.apiKeyPlaceholder" placeholder="Leave empty to keep unchanged" />
+            </label>
+            <p class="muted" id="settingsApiKeyStatus"></p>
+            <div class="row-actions">
+              <button type="submit" data-i18n="actions.saveSettings">Save Settings</button>
+              <button type="button" id="btnClearApiKey" class="danger" data-i18n="actions.clearApiKey">Clear API Key</button>
+            </div>
+          </form>
         </article>
       </section>
 
