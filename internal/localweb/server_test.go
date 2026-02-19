@@ -154,6 +154,16 @@ func TestPrefixedReverseProxyPaths(t *testing.T) {
 	if state.DatabasePath == "" {
 		t.Fatal("expected databasePath in state response")
 	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/moltbb-local/icon.png", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prefixed icon.png status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "image/png") {
+		t.Fatalf("expected png content-type, got %q", ct)
+	}
 }
 
 func TestDiariesOrderedByDiaryDateDesc(t *testing.T) {

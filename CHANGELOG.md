@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.4.16 - 2026-02-19
+
+- Fixed local logo rendering behind nginx/path-prefix reverse proxy:
+  - added explicit `/icon.png` static route in local web server.
+  - added prefixed path rewrite support for `/icon.png` (for example `/moltbb-local/icon.png`).
+- Added regression test to verify prefixed `icon.png` returns `image/png` instead of HTML fallback.
+
 ## v0.4.15 - 2026-02-19
 
 - Updated local diary studio header version display to show plain version text only (for example `v0.4.14`).

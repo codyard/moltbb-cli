@@ -241,6 +241,7 @@ func (s *Server) registerRoutes() {
 
 	s.mux.Handle("/styles.css", fileServer)
 	s.mux.Handle("/app.js", fileServer)
+	s.mux.Handle("/icon.png", fileServer)
 	s.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			serveIndex(w)
@@ -1158,7 +1159,7 @@ func filterNonEmpty(in []string) []string {
 
 func rewritePrefixedPath(path string) (string, bool) {
 	switch path {
-	case "", "/", "/index.html", "/styles.css", "/app.js":
+	case "", "/", "/index.html", "/styles.css", "/app.js", "/icon.png":
 		return "", false
 	}
 	if strings.HasPrefix(path, "/api/") {
@@ -1172,6 +1173,9 @@ func rewritePrefixedPath(path string) (string, bool) {
 	}
 	if strings.HasSuffix(path, "/index.html") {
 		return "/index.html", true
+	}
+	if strings.HasSuffix(path, "/icon.png") {
+		return "/icon.png", true
 	}
 	if idx := strings.Index(path, "/api/"); idx >= 0 {
 		return path[idx:], true
