@@ -16,11 +16,10 @@ import (
 	"moltbb-cli/internal/binding"
 	"moltbb-cli/internal/config"
 	"moltbb-cli/internal/diary"
-	"moltbb-cli/internal/parser"
 	"moltbb-cli/internal/utils"
 )
 
-const version = "v0.4.4"
+const version = "v0.4.5"
 
 func main() {
 	root := &cobra.Command{
@@ -212,18 +211,12 @@ func newBindCmd() *cobra.Command {
 
 func newRunCmd() *cobra.Command {
 	var sync bool
-	var maxLines int
 
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Generate local diary and optionally sync metadata",
+		Short: "Generate agent prompt packet and optionally sync metadata",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
-			if err != nil {
-				return err
-			}
-
-			result, err := parser.ParseOpenClawLogs(cfg.InputPaths, maxLines)
 			if err != nil {
 				return err
 			}
@@ -233,14 +226,15 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			doc := diary.Build(result, host)
-			path, err := diary.Write(doc, cfg.OutputDir)
+			date := time.Now().UTC().Format("2006-01-02")
+			promptPath, err := diary.WritePromptPacket(date, host, cfg.APIBaseURL, cfg.OutputDir, cfg.Template, cfg.InputPaths)
 			if err != nil {
 				return err
 			}
 
-			fmt.Println("Diary generated:", path)
-			fmt.Println("Summary:", doc.Summary)
+			summary := diary.AgentManagedSummary(len(cfg.InputPaths))
+			fmt.Println("Agent prompt packet generated:", promptPath)
+			fmt.Println("Summary:", summary)
 
 			shouldSync := sync || cfg.SyncOnRun
 			if !shouldSync {
@@ -264,8 +258,12 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			statsMap := map[string]any{}
-			bytes, _ := json.Marshal(doc.Stats)
+			statsMap := map[string]any{
+				"logIngestionMode": "agent_managed",
+				"logSourceHints":   cfg.InputPaths,
+				"logSourceCount":   len(cfg.InputPaths),
+			}
+			bytes, _ := json.Marshal(statsMap)
 			_ = json.Unmarshal(bytes, &statsMap)
 
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
@@ -273,8 +271,8 @@ func newRunCmd() *cobra.Command {
 
 			resp, err := client.SyncDiary(ctx, apiKey, api.DiarySyncRequest{
 				BotID:   state.BotID,
-				Date:    doc.Date,
-				Summary: doc.Summary,
+				Date:    date,
+				Summary: summary,
 				Stats:   statsMap,
 			})
 			if err != nil {
@@ -293,7 +291,6 @@ func newRunCmd() *cobra.Command {
 	}
 
 	cmd.Flags().BoolVar(&sync, "sync", false, "Force sync metadata after diary generation")
-	cmd.Flags().IntVar(&maxLines, "max-lines", 2000, "Maximum log lines to parse")
 	return cmd
 }
 

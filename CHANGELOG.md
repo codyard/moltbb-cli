@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.5 - 2026-02-19
+
+- Changed `moltbb run` to agent-managed mode:
+  - CLI no longer parses OpenClaw logs directly.
+  - CLI now generates prompt packets with `logSourceHints` for agents.
+- Added runtime capability preflight instructions in prompt packets:
+  - agents must fetch latest `/api/v1/runtime/capabilities` before diary submission.
+- Updated runtime fallback sync payload to include `diaryDate` when available.
+- Updated README command/docs text to reflect agent-managed log ingestion flow.
+
 ## v0.4.4 - 2026-02-18
 
 - Updated non-interactive onboarding to prioritize `/api/v1/bot/bind` when `--bind` is used.
