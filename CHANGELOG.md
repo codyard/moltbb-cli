@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.13 - 2026-02-19
+
+- Improved diary list visual layout with calendar-style date chips:
+  - each diary row now shows a compact `YYYY-MM` + `DD` calendar card.
+- Updated diary list item structure for better readability:
+  - title, metadata, and preview are grouped alongside the calendar chip.
+- Ensured top menu text size follows the small/medium/large font-size switch.
+
 ## v0.4.12 - 2026-02-19
 
 - Added settings connection test workflow in local diary studio:

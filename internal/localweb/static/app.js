@@ -640,6 +640,29 @@ function renderSettingsTest() {
   }
 }
 
+function diaryCalendarParts(dateRaw) {
+  const match = String(dateRaw || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return { hasDate: false, yearMonth: '--', day: '--' };
+  }
+  return {
+    hasDate: true,
+    yearMonth: `${match[1]}-${match[2]}`,
+    day: match[3],
+  };
+}
+
+function renderDiaryCalendar(dateRaw) {
+  const parts = diaryCalendarParts(dateRaw);
+  const emptyClass = parts.hasDate ? '' : ' empty';
+  return `
+    <div class="calendar-chip${emptyClass}" aria-hidden="true">
+      <span class="calendar-ym">${escapeHtml(parts.yearMonth)}</span>
+      <strong class="calendar-day">${escapeHtml(parts.day)}</strong>
+    </div>
+  `;
+}
+
 function renderDiaryList(items) {
   const container = el('diaryList');
   if (!items.length) {
@@ -649,11 +672,17 @@ function renderDiaryList(items) {
   container.innerHTML = items
     .map((item) => {
       const active = item.id === state.currentDiaryId ? 'active' : '';
+      const calendar = renderDiaryCalendar(item.date || '');
       return `
-        <article class="item ${active}" data-id="${escapeHtml(item.id)}">
-          <h3>${escapeHtml(item.title || item.filename)}</h3>
-          <p>${escapeHtml(item.preview || '')}</p>
-          <div class="meta">${escapeHtml(item.date || t('common.na'))} · ${escapeHtml(item.filename)}</div>
+        <article class="item diary-item ${active}" data-id="${escapeHtml(item.id)}">
+          <div class="diary-item-head">
+            ${calendar}
+            <div class="diary-item-main">
+              <h3>${escapeHtml(item.title || item.filename)}</h3>
+              <div class="meta">${escapeHtml(item.date || t('common.na'))} · ${escapeHtml(item.filename)}</div>
+              <p class="item-preview">${escapeHtml(item.preview || '')}</p>
+            </div>
+          </div>
         </article>
       `;
     })

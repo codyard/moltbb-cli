@@ -187,6 +187,12 @@ h2 {
   padding: 0.65rem;
 }
 
+.tabs .tab-btn,
+.tabs .action-btn {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
 .tab-btn,
 .action-btn,
 button {
@@ -313,6 +319,58 @@ textarea {
   margin-top: 0.4rem;
   font-size: 0.74rem;
   color: var(--cyan);
+}
+
+.diary-item .diary-item-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.64rem;
+}
+
+.diary-item .diary-item-main {
+  min-width: 0;
+  flex: 1;
+}
+
+.diary-item .item-preview {
+  margin: 0.38rem 0 0;
+  color: var(--text-1);
+  font-size: 0.84rem;
+}
+
+.calendar-chip {
+  width: 3.45rem;
+  border: 1px solid rgba(93, 228, 255, 0.4);
+  border-radius: 10px;
+  background: rgba(6, 12, 24, 0.88);
+  overflow: hidden;
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.calendar-ym {
+  display: block;
+  padding: 0.2rem 0.22rem;
+  font-size: 0.58rem;
+  letter-spacing: 0.03em;
+  color: var(--text-1);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.calendar-day {
+  display: block;
+  padding: 0.28rem 0.2rem 0.3rem;
+  font-size: 1.08rem;
+  line-height: 1;
+  color: var(--lime);
+}
+
+.calendar-chip.empty .calendar-day {
+  color: var(--text-1);
+}
+
+.item.active .calendar-chip {
+  border-color: rgba(213, 255, 47, 0.55);
 }
 
 .content {
