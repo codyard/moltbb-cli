@@ -19,7 +19,6 @@ type Config struct {
 	InputPaths            []string `yaml:"input_paths"`
 	OutputDir             string   `yaml:"output_dir"`
 	Template              string   `yaml:"template,omitempty"`
-	SyncOnRun             bool     `yaml:"sync_on_run"`
 	RequestTimeoutSeconds int      `yaml:"request_timeout_seconds"`
 	RetryCount            int      `yaml:"retry_count"`
 	OpenClawLogPath       string   `yaml:"openclaw_log_path,omitempty"`
@@ -31,7 +30,6 @@ func Default() Config {
 		APIBaseURL:            DefaultAPIBaseURL,
 		InputPaths:            []string{"~/.openclaw/logs/work.log"},
 		OutputDir:             "diary",
-		SyncOnRun:             true,
 		RequestTimeoutSeconds: 12,
 		RetryCount:            2,
 	}

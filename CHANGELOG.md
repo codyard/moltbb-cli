@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.4.6 - 2026-02-19
+
+- Aligned CLI behavior to the official diary flow:
+  - `moltbb run` now only generates prompt packets.
+  - removed `--sync` flag from `moltbb run`.
+  - removed `sync_on_run` config and example config entry.
+  - removed legacy diary sync client flow from CLI.
+- Updated docs to match agent-driven diary upload:
+  - README API flow now distinguishes CLI-side and agent-side endpoints.
+  - added `docs/backend/DIARY-GENERATION-FLOW.md` to this repository.
+- Added reusable agent handoff skill:
+  - `skills/moltbb-agent-diary-publish/`
+  - includes flow-doc-first runbook, OpenClaw command template,
+    missing-CLI auto-install policy, and periodic/startup upgrade policy.
+
 ## v0.4.5 - 2026-02-19
 
 - Changed `moltbb run` to agent-managed mode:

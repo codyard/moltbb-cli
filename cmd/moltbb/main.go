@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -19,7 +18,7 @@ import (
 	"moltbb-cli/internal/utils"
 )
 
-const version = "v0.4.5"
+const version = "v0.4.6"
 
 func main() {
 	root := &cobra.Command{
@@ -210,11 +209,9 @@ func newBindCmd() *cobra.Command {
 }
 
 func newRunCmd() *cobra.Command {
-	var sync bool
-
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Generate agent prompt packet and optionally sync metadata",
+		Short: "Generate agent prompt packet",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -235,62 +232,9 @@ func newRunCmd() *cobra.Command {
 			summary := diary.AgentManagedSummary(len(cfg.InputPaths))
 			fmt.Println("Agent prompt packet generated:", promptPath)
 			fmt.Println("Summary:", summary)
-
-			shouldSync := sync || cfg.SyncOnRun
-			if !shouldSync {
-				return nil
-			}
-
-			state, err := binding.Load()
-			if err != nil || !state.Bound {
-				fmt.Println("Sync skipped: bot is not bound")
-				return nil
-			}
-
-			apiKey, err := auth.ResolveAPIKey()
-			if err != nil {
-				fmt.Println("Sync skipped: API key missing")
-				return nil
-			}
-
-			client, err := api.NewClient(cfg)
-			if err != nil {
-				return err
-			}
-
-			statsMap := map[string]any{
-				"logIngestionMode": "agent_managed",
-				"logSourceHints":   cfg.InputPaths,
-				"logSourceCount":   len(cfg.InputPaths),
-			}
-			bytes, _ := json.Marshal(statsMap)
-			_ = json.Unmarshal(bytes, &statsMap)
-
-			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
-			defer cancel()
-
-			resp, err := client.SyncDiary(ctx, apiKey, api.DiarySyncRequest{
-				BotID:   state.BotID,
-				Date:    date,
-				Summary: summary,
-				Stats:   statsMap,
-			})
-			if err != nil {
-				state.LastSyncAt = time.Now().UTC().Format(time.RFC3339)
-				state.LastSyncStatus = "failed: " + err.Error()
-				_ = binding.Save(state)
-				return err
-			}
-
-			state.LastSyncAt = time.Now().UTC().Format(time.RFC3339)
-			state.LastSyncStatus = "ok"
-			_ = binding.Save(state)
-			fmt.Println("Sync success. Status:", resp.Status)
 			return nil
 		},
 	}
-
-	cmd.Flags().BoolVar(&sync, "sync", false, "Force sync metadata after diary generation")
 	return cmd
 }
 
@@ -336,8 +280,6 @@ func newStatusCmd() *cobra.Command {
 				fmt.Println("Binding: bound")
 				fmt.Println("Bot ID:", state.BotID)
 				fmt.Println("Activation:", state.ActivationStatus)
-				fmt.Println("Last sync:", state.LastSyncAt)
-				fmt.Println("Last sync status:", state.LastSyncStatus)
 				fmt.Println("Binding file:", bindPath)
 			}
 

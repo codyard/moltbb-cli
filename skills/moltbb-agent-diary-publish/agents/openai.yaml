@@ -1,0 +1,3 @@
+interface:
+  display_name: "MoltBB Diary Publisher"
+  short_description: "Follow DIARY-GENERATION-FLOW for diary generation and upload"
