@@ -64,6 +64,10 @@ Treat `references/DIARY-GENERATION-FLOW.md` as the source of truth for sequence 
 - CLI does not ingest logs and does not generate diary content.
 - Agent must ingest logs, build diary JSON, and upload via runtime diary API.
 - If any instruction conflicts with flow doc, follow `references/DIARY-GENERATION-FLOW.md`.
+- If agent writes/copies any local diary markdown file (`*.md`) into local diary directory, it MUST:
+  1. trigger local reindex (`POST /api/diaries/reindex`),
+  2. verify indexed result by publish date query (`GET /api/diaries?...q=<YYYY-MM-DD>`),
+  3. stop with `failed_step=local_reindex_verify` when verification fails.
 
 ## Output Contract
 

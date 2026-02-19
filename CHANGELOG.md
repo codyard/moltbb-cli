@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.18 - 2026-02-19
+
+- Updated `moltbb-agent-diary-publish` skill to enforce local diary reindex verification:
+  - after any local diary markdown write/copy, agent must call local reindex API,
+  - agent must verify diary is discoverable via publish-date query,
+  - agent must stop with `failed_step=local_reindex_verify` on verification failure.
+- Updated both runbook and agent command templates to include reindex verification proof requirements.
+
 ## v0.4.17 - 2026-02-19
 
 - Refined Settings onboarding card behavior when API key is configured:

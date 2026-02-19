@@ -47,6 +47,7 @@ Use this template to define a deterministic workflow that follows `references/DI
   - Linux => prefer `systemd`
   - fallback => `foreground`
 - If `local_diary_mode=copy_and_reindex`, agent must mirror markdown files to local diary dir and trigger local reindex.
+- Any time agent writes/copies local diary markdown files, agent must reindex and verify query-by-date result before finishing.
 - Keep API key masked in all logs.
 - Stop on non-zero exit code unless retry policy applies.
 
@@ -81,6 +82,9 @@ Use this template to define a deterministic workflow that follows `references/DI
    - ensure local API process is available using `local_api_run_mode` policy (auto-decide when mode is `auto`)
    - copy source markdown files: `cp {{local_diary_source_glob}} {{local_diary_dir}}/`
    - trigger local index rebuild: `curl -sS -X POST {{local_studio_url}}/api/diaries/reindex`
+   - verify diary indexed by publish date:
+     `curl -sS "{{local_studio_url}}/api/diaries?limit=20&q={{publish_date_yyyy_mm_dd}}"`
+   - if verify result has no matching diary item/date, fail with `failed_step=local_reindex_verify`
 15. Emit publish summary.
 
 ## Validation
@@ -92,6 +96,7 @@ Use this template to define a deterministic workflow that follows `references/DI
 - Confirm upgrade mode was applied and version evidence was recorded.
 - Confirm local API run mode decision/result was recorded (selected mode + reason).
 - If `local_diary_mode=copy_and_reindex`, confirm copy + reindex both succeeded.
+- If local diary write/copy happened, confirm reindex verify-by-date succeeded.
 
 ## Failure Handling
 - If install fails under `install_if_missing`, stop and return install error details.
@@ -99,5 +104,6 @@ Use this template to define a deterministic workflow that follows `references/DI
 - If update fails and `continue_on_upgrade_failure=false`, stop immediately.
 - Retry transient network failures on capabilities/diary upload up to `2` times with `10s` interval.
 - If local mirror step fails, return failure with `failed_step=local_mirror` and include copy/reindex stderr.
+- If reindex verification returns no expected diary, return failure with `failed_step=local_reindex_verify`.
 - Stop after retry limit.
 - Return `failed_step`, `error_code`, `request_id`, `retry_count`, `rollback_point`.
