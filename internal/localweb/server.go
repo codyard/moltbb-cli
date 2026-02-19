@@ -1,6 +1,7 @@
 package localweb
 
 import (
+	"context"
 	"database/sql"
 	"embed"
 	"encoding/json"
@@ -17,7 +18,9 @@ import (
 	"strings"
 	"time"
 
+	"moltbb-cli/internal/api"
 	"moltbb-cli/internal/auth"
+	"moltbb-cli/internal/config"
 	"moltbb-cli/internal/diary"
 	"moltbb-cli/internal/utils"
 )
@@ -92,6 +95,20 @@ type settingsResponse struct {
 type settingsUpdateRequest struct {
 	CloudSyncEnabled *bool   `json:"cloudSyncEnabled,omitempty"`
 	APIKey           *string `json:"apiKey,omitempty"`
+}
+
+type settingsConnectionTestRequest struct {
+	APIKey string `json:"apiKey,omitempty"`
+}
+
+type settingsConnectionTestResponse struct {
+	Success       bool   `json:"success"`
+	Connected     bool   `json:"connected"`
+	Authenticated bool   `json:"authenticated"`
+	APIBaseURL    string `json:"apiBaseUrl"`
+	KeySource     string `json:"keySource,omitempty"`
+	Message       string `json:"message"`
+	CheckedAt     string `json:"checkedAt"`
 }
 
 type generatePacketRequest struct {
@@ -197,6 +214,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/health", s.handleHealth)
 	s.mux.HandleFunc("/api/state", s.handleState)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
+	s.mux.HandleFunc("/api/settings/test-connection", s.handleSettingsConnectionTest)
 	s.mux.HandleFunc("/api/diaries", s.handleDiaries)
 	s.mux.HandleFunc("/api/diaries/reindex", s.handleReindex)
 	s.mux.HandleFunc("/api/diaries/", s.handleDiaryByID)
@@ -318,6 +336,25 @@ func (s *Server) handleSettings(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Allow", "GET, PATCH")
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 	}
+}
+
+func (s *Server) handleSettingsConnectionTest(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	var req settingsConnectionTestRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+		return
+	}
+
+	result, err := s.testSettingsConnection(strings.TrimSpace(req.APIKey))
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 func (s *Server) handleReindex(w http.ResponseWriter, r *http.Request) {
@@ -683,6 +720,113 @@ func maskAPIKey(input string) string {
 	head := string(runes[:3])
 	tail := string(runes[len(runes)-3:])
 	return head + strings.Repeat("*", len(runes)-6) + tail
+}
+
+func (s *Server) testSettingsConnection(apiKeyOverride string) (settingsConnectionTestResponse, error) {
+	baseURL := strings.TrimSpace(s.apiBaseURL)
+	if baseURL == "" {
+		baseURL = config.DefaultAPIBaseURL
+	}
+
+	cfg := config.Default()
+	cfg.APIBaseURL = baseURL
+	if strings.HasPrefix(baseURL, "http://") {
+		cfg.AllowInsecureHTTP = true
+	}
+
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		return settingsConnectionTestResponse{}, fmt.Errorf("create api client: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+	defer cancel()
+
+	apiKey, keySource := s.resolveAPIKeyForConnectionTest(apiKeyOverride)
+	checkedAt := time.Now().UTC().Format(time.RFC3339)
+	if apiKey == "" {
+		if err := client.Ping(ctx); err != nil {
+			return settingsConnectionTestResponse{
+				Success:       false,
+				Connected:     false,
+				Authenticated: false,
+				APIBaseURL:    baseURL,
+				KeySource:     keySource,
+				Message:       fmt.Sprintf("Failed to connect to API: %v", err),
+				CheckedAt:     checkedAt,
+			}, nil
+		}
+		return settingsConnectionTestResponse{
+			Success:       true,
+			Connected:     true,
+			Authenticated: false,
+			APIBaseURL:    baseURL,
+			KeySource:     keySource,
+			Message:       "Connected to API, but API key is not configured.",
+			CheckedAt:     checkedAt,
+		}, nil
+	}
+
+	validateResp, validateErr := client.ValidateAPIKey(ctx, apiKey)
+	if validateErr == nil && validateResp.Valid {
+		return settingsConnectionTestResponse{
+			Success:       true,
+			Connected:     true,
+			Authenticated: true,
+			APIBaseURL:    baseURL,
+			KeySource:     keySource,
+			Message:       "Connection successful and API key is valid.",
+			CheckedAt:     checkedAt,
+		}, nil
+	}
+
+	if pingErr := client.Ping(ctx); pingErr == nil {
+		msg := "API reachable, but API key validation failed."
+		if validateErr != nil {
+			msg = fmt.Sprintf("%s %v", msg, validateErr)
+		}
+		return settingsConnectionTestResponse{
+			Success:       false,
+			Connected:     true,
+			Authenticated: false,
+			APIBaseURL:    baseURL,
+			KeySource:     keySource,
+			Message:       msg,
+			CheckedAt:     checkedAt,
+		}, nil
+	}
+
+	msg := "Failed to connect to API."
+	if validateErr != nil {
+		msg = fmt.Sprintf("%s %v", msg, validateErr)
+	}
+	return settingsConnectionTestResponse{
+		Success:       false,
+		Connected:     false,
+		Authenticated: false,
+		APIBaseURL:    baseURL,
+		KeySource:     keySource,
+		Message:       msg,
+		CheckedAt:     checkedAt,
+	}, nil
+}
+
+func (s *Server) resolveAPIKeyForConnectionTest(override string) (apiKey string, source string) {
+	if trimmed := strings.TrimSpace(override); trimmed != "" {
+		return trimmed, "request"
+	}
+	if envKey := strings.TrimSpace(os.Getenv("MOLTBB_API_KEY")); envKey != "" {
+		return envKey, "env"
+	}
+	creds, err := auth.Load()
+	if err != nil {
+		return "", ""
+	}
+	apiKey = strings.TrimSpace(creds.APIKey)
+	if apiKey == "" {
+		return "", ""
+	}
+	return apiKey, "credentials"
 }
 
 func (s *Server) loadDiaryDetail(id string) (diaryDetail, bool, error) {

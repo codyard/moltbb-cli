@@ -28,6 +28,7 @@ const MESSAGES = {
     'actions.delete': 'Delete',
     'actions.generate': 'Generate',
     'actions.saveSettings': 'Save Settings',
+    'actions.testConnection': 'Test Connection',
     'actions.clearApiKey': 'Clear API Key',
     'diary.listTitle': 'Diary List',
     'diary.detailTitle': 'Diary Detail',
@@ -87,12 +88,20 @@ const MESSAGES = {
     'settings.apiKeyConfiguredWithSource': 'Configured ({source}): {masked}',
     'settings.apiKeySourceEnv': 'Environment variable',
     'settings.apiKeySourceCredentials': 'Credentials file',
+    'settings.apiKeySourceRequest': 'Current input',
     'settings.metaSyncOn': 'Cloud sync: ON',
     'settings.metaSyncOff': 'Cloud sync: OFF',
+    'settings.testNotRun': 'Connection test not run yet.',
+    'settings.testing': 'Testing connection...',
+    'settings.testSuccess': 'Connection test succeeded.',
+    'settings.testFailed': 'Connection test failed: {message}',
+    'settings.testResultOk': 'Success: {message}',
+    'settings.testResultFail': 'Failed: {message}',
     'settings.saved': 'Settings saved.',
     'settings.cleared': 'API key cleared.',
     'settings.clearConfirm': 'Clear saved API key?',
     'settings.loadFailed': 'Load settings failed: {message}',
+    'settings.testFailedRequest': 'Connection test request failed: {message}',
     'settings.saveFailed': 'Save settings failed: {message}',
     'settings.clearFailed': 'Clear API key failed: {message}',
     'reindex.done': 'Reindex completed: {count} diaries.',
@@ -127,6 +136,7 @@ const MESSAGES = {
     'actions.delete': '删除',
     'actions.generate': '生成',
     'actions.saveSettings': '保存设置',
+    'actions.testConnection': '测试连接',
     'actions.clearApiKey': '清除 API Key',
     'diary.listTitle': '日记列表',
     'diary.detailTitle': '日记详情',
@@ -186,12 +196,20 @@ const MESSAGES = {
     'settings.apiKeyConfiguredWithSource': '已配置（{source}）: {masked}',
     'settings.apiKeySourceEnv': '环境变量',
     'settings.apiKeySourceCredentials': '本地凭据文件',
+    'settings.apiKeySourceRequest': '当前输入',
     'settings.metaSyncOn': '云同步：已开启',
     'settings.metaSyncOff': '云同步：已关闭',
+    'settings.testNotRun': '尚未执行连接测试。',
+    'settings.testing': '正在测试连接...',
+    'settings.testSuccess': '连接测试成功。',
+    'settings.testFailed': '连接测试失败: {message}',
+    'settings.testResultOk': '成功：{message}',
+    'settings.testResultFail': '失败：{message}',
     'settings.saved': '设置已保存。',
     'settings.cleared': 'API Key 已清除。',
     'settings.clearConfirm': '确认清除已保存的 API Key 吗？',
     'settings.loadFailed': '加载设置失败: {message}',
+    'settings.testFailedRequest': '连接测试请求失败: {message}',
     'settings.saveFailed': '保存设置失败: {message}',
     'settings.clearFailed': '清除 API Key 失败: {message}',
     'reindex.done': '索引重建完成: {count} 篇日记。',
@@ -215,6 +233,7 @@ const state = {
   currentDiaryDetail: null,
   currentPromptDetail: null,
   settings: null,
+  settingsTest: null,
   locale: 'en',
   fontSize: 'small',
   hasGeneratedPacket: false,
@@ -555,6 +574,9 @@ function apiKeySourceLabel(source) {
   if (source === 'credentials') {
     return t('settings.apiKeySourceCredentials');
   }
+  if (source === 'request') {
+    return t('settings.apiKeySourceRequest');
+  }
   return source || '';
 }
 
@@ -570,6 +592,7 @@ function renderSettings() {
     cloudSwitch.checked = false;
     apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
     meta.textContent = t('settings.metaSyncOff');
+    renderSettingsTest();
     return;
   }
 
@@ -584,14 +607,37 @@ function renderSettings() {
     } else {
       apiKeyStatus.textContent = t('settings.apiKeyConfigured', { masked });
     }
+    renderSettingsTest();
     return;
   }
   apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
+  renderSettingsTest();
 }
 
 async function loadSettings() {
   state.settings = await api('/settings');
   renderSettings();
+}
+
+function renderSettingsTest() {
+  const target = el('settingsTestResult');
+  if (!target) {
+    return;
+  }
+  if (!state.settingsTest) {
+    target.textContent = t('settings.testNotRun');
+    target.style.color = '';
+    return;
+  }
+
+  const message = state.settingsTest.message || '';
+  if (state.settingsTest.success) {
+    target.textContent = t('settings.testResultOk', { message });
+    target.style.color = 'var(--lime)';
+  } else {
+    target.textContent = t('settings.testResultFail', { message });
+    target.style.color = 'var(--coral)';
+  }
 }
 
 function renderDiaryList(items) {
@@ -856,6 +902,7 @@ async function saveSettings(event) {
     body: JSON.stringify(payload),
   });
   state.settings = data;
+  state.settingsTest = null;
   el('settingApiKey').value = '';
   renderSettings();
   setStatusKey('settings.saved');
@@ -872,9 +919,38 @@ async function clearApiKey() {
     body: JSON.stringify({ apiKey: '' }),
   });
   state.settings = data;
+  state.settingsTest = null;
   el('settingApiKey').value = '';
   renderSettings();
   setStatusKey('settings.cleared');
+}
+
+async function testSettingsConnection() {
+  const button = el('btnTestConnection');
+  if (button) {
+    button.disabled = true;
+  }
+  setStatusKey('settings.testing');
+
+  try {
+    const apiKey = el('settingApiKey').value.trim();
+    const payload = apiKey ? { apiKey } : {};
+    const data = await api('/settings/test-connection', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    state.settingsTest = data;
+    renderSettingsTest();
+    if (data.success) {
+      setStatusKey('settings.testSuccess');
+    } else {
+      setStatusKey('settings.testFailed', { message: data.message || '' }, true);
+    }
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
 }
 
 function applyStaticI18n() {
@@ -1016,6 +1092,10 @@ function bindEvents() {
 
   el('settingsForm').addEventListener('submit', (event) => {
     saveSettings(event).catch((err) => setStatusKey('settings.saveFailed', { message: err.message }, true));
+  });
+
+  el('btnTestConnection').addEventListener('click', () => {
+    testSettingsConnection().catch((err) => setStatusKey('settings.testFailedRequest', { message: err.message }, true));
   });
 
   el('btnClearApiKey').addEventListener('click', () => {

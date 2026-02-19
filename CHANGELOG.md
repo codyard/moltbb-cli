@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## v0.4.12 - 2026-02-19
+
+- Added settings connection test workflow in local diary studio:
+  - new `Test Connection` action in Settings tab,
+  - supports testing with the current API key input without saving first,
+  - displays connection/authentication status and detailed test result message.
+- Added local API endpoint for connection test:
+  - `POST /api/settings/test-connection`.
+  - returns `connected`, `authenticated`, `keySource`, and status message.
+- Added backend regression test for successful settings connection test path.
+
 ## v0.4.11 - 2026-02-19
 
 - Enhanced local diary studio UX:

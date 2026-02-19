@@ -278,3 +278,60 @@ func TestSettingsCloudSyncToggle(t *testing.T) {
 		t.Fatal("expected cloud sync enabled after reload")
 	}
 }
+
+func TestSettingsTestConnectionSuccess(t *testing.T) {
+	expectedAPIKey := "sk-test-123456"
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v1/auth/validate" || r.Method != http.MethodPost {
+			http.NotFound(w, r)
+			return
+		}
+		if got := r.Header.Get("X-API-Key"); got != expectedAPIKey {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"success":false,"message":"invalid key"}`))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"success":true,"data":{"valid":true}}`))
+	}))
+	defer remote.Close()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: remote.URL,
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/settings/test-connection", strings.NewReader(`{"apiKey":"`+expectedAPIKey+`"}`))
+	req.Header.Set("Content-Type", "application/json")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("test connection status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var result settingsConnectionTestResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &result); err != nil {
+		t.Fatalf("decode test connection response: %v", err)
+	}
+	if !result.Success {
+		t.Fatalf("expected success=true, message=%q", result.Message)
+	}
+	if !result.Connected {
+		t.Fatal("expected connected=true")
+	}
+	if !result.Authenticated {
+		t.Fatal("expected authenticated=true")
+	}
+	if result.KeySource != "request" {
+		t.Fatalf("expected keySource=request, got %q", result.KeySource)
+	}
+}
