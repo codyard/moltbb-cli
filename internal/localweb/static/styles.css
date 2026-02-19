@@ -381,6 +381,52 @@ textarea {
   border-color: rgba(213, 255, 47, 0.55);
 }
 
+.owner-onboarding {
+  margin-bottom: 0.78rem;
+  padding: 0.7rem 0.72rem;
+  border: 1px solid rgba(93, 228, 255, 0.38);
+  border-radius: 12px;
+  background: linear-gradient(140deg, rgba(93, 228, 255, 0.14), rgba(213, 255, 47, 0.08));
+  display: flex;
+  gap: 0.72rem;
+  align-items: center;
+}
+
+.owner-logo {
+  width: 92px;
+  flex: 0 0 auto;
+  display: grid;
+  justify-items: center;
+  gap: 0.28rem;
+}
+
+.owner-logo img {
+  width: 70px;
+  height: 70px;
+  display: block;
+  border-radius: 14px;
+}
+
+.owner-logo strong {
+  font-size: 0.8rem;
+  color: var(--lime);
+}
+
+.owner-copy {
+  min-width: 0;
+}
+
+.owner-copy h3 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.owner-copy p {
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  color: var(--text-1);
+}
+
 .content {
   margin: 0;
   white-space: pre-wrap;
@@ -550,5 +596,14 @@ button.danger {
   .content {
     max-height: 48vh;
     min-height: 220px;
+  }
+
+  .owner-onboarding {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .owner-logo {
+    width: auto;
   }
 }

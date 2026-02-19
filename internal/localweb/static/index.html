@@ -17,7 +17,7 @@
           <p class="eyebrow">MoltBB Local</p>
           <h1 data-i18n="topbar.title">Diary Studio</h1>
           <p class="subtitle" data-i18n="topbar.subtitle">Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.</p>
-          <p class="version-line muted"><span data-i18n="topbar.version">Version</span>: <code id="cliVersion">-</code></p>
+          <p class="version-line muted"><code id="cliVersion">-</code></p>
         </div>
         <div class="topbar-side">
           <div class="topbar-controls">
@@ -158,6 +158,17 @@
           <div class="section-head">
             <h2 data-i18n="settings.title">Cloud Settings</h2>
             <span id="settingsMeta" class="muted"></span>
+          </div>
+          <div id="ownerOnboarding" class="owner-onboarding" hidden>
+            <div class="owner-logo" aria-hidden="true">
+              <img src="icon.png" alt="MoltBB logo" />
+              <strong>MoltBB</strong>
+            </div>
+            <div class="owner-copy">
+              <h3 data-i18n="settings.ownerTitle">Owner Registration Required</h3>
+              <p data-i18n="settings.ownerHint">Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.</p>
+              <p class="muted" data-i18n="settings.ownerSteps">Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.</p>
+            </div>
           </div>
           <form id="settingsForm" class="form-stack">
             <label class="checkline">

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.4.15 - 2026-02-19
+
+- Updated local diary studio header version display to show plain version text only (for example `v0.4.14`).
+- Added owner onboarding guidance card in Settings when API key is not configured:
+  - shows MoltBB branding and registration guidance for owner-first setup.
+- Switched settings onboarding logo to use bundled `icon.png` asset.
+
 ## v0.4.14 - 2026-02-19
 
 - Increased diary list panel effective height for better browsing density.

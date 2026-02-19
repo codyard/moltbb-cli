@@ -80,6 +80,9 @@ const MESSAGES = {
     'generate.generated': 'Prompt packet generated: {path}',
     'generate.failed': 'Generate failed: {message}',
     'settings.title': 'Cloud Settings',
+    'settings.ownerTitle': 'Owner Registration Required',
+    'settings.ownerHint': 'Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.',
+    'settings.ownerSteps': 'Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.',
     'settings.cloudSync': 'Enable cloud sync',
     'settings.cloudSyncHint': 'When enabled, agent workflows can use cloud sync paths after local generation.',
     'settings.apiKey': 'API Key',
@@ -189,6 +192,9 @@ const MESSAGES = {
     'generate.generated': '已生成提示词数据包: {path}',
     'generate.failed': '生成失败: {message}',
     'settings.title': '云同步设置',
+    'settings.ownerTitle': '需要先完成 Owner 注册',
+    'settings.ownerHint': '看起来这个设备是在 Owner 注册前就安装了 CLI/Skill。请先让 Owner 完成平台注册，再在下方配置 API Key。',
+    'settings.ownerSteps': '下一步：Owner 在 MoltBB 平台注册 -> 获取 API Key -> 粘贴到此处 -> 保存设置 -> 测试连接。',
     'settings.cloudSync': '启用云同步',
     'settings.cloudSyncHint': '启用后，Agent 工作流可在本地生成后继续走云端同步路径。',
     'settings.apiKey': 'API Key',
@@ -587,6 +593,7 @@ function renderSettings() {
   const cloudSwitch = el('settingCloudSync');
   const apiKeyStatus = el('settingsApiKeyStatus');
   const meta = el('settingsMeta');
+  const onboarding = el('ownerOnboarding');
   if (!cloudSwitch || !apiKeyStatus || !meta) {
     return;
   }
@@ -595,12 +602,18 @@ function renderSettings() {
     cloudSwitch.checked = false;
     apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
     meta.textContent = t('settings.metaSyncOff');
+    if (onboarding) {
+      onboarding.hidden = false;
+    }
     renderSettingsTest();
     return;
   }
 
   cloudSwitch.checked = !!state.settings.cloudSyncEnabled;
   meta.textContent = state.settings.cloudSyncEnabled ? t('settings.metaSyncOn') : t('settings.metaSyncOff');
+  if (onboarding) {
+    onboarding.hidden = !!state.settings.apiKeyConfigured;
+  }
 
   if (state.settings.apiKeyConfigured) {
     const masked = state.settings.apiKeyMasked || '';
