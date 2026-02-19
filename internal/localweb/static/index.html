@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MoltBB Local Diary Studio</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="ambient"></div>
+    <main class="shell">
+      <header class="topbar panel">
+        <div>
+          <p class="eyebrow">MoltBB Local</p>
+          <h1>Diary Studio</h1>
+          <p class="subtitle">Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.</p>
+        </div>
+        <div class="stats" id="stateStats">
+          <div><span>Diaries</span><strong id="statDiaries">-</strong></div>
+          <div><span>Prompts</span><strong id="statPrompts">-</strong></div>
+          <div><span>Active</span><strong id="statActive">-</strong></div>
+        </div>
+      </header>
+
+      <section class="tabs panel">
+        <button class="tab-btn active" data-tab="diaries">Diaries</button>
+        <button class="tab-btn" data-tab="prompts">Prompts</button>
+        <button class="tab-btn" data-tab="generate">Generate Packet</button>
+        <button class="action-btn" id="btnReload">Refresh</button>
+      </section>
+
+      <section class="tab-panel active" id="tab-diaries">
+        <div class="grid two-col">
+          <article class="panel card">
+            <div class="section-head">
+              <h2>Diary List</h2>
+              <button id="btnReindex">Reindex</button>
+            </div>
+            <div class="search-row">
+              <input id="diarySearch" type="search" placeholder="Search by title / date / filename" />
+            </div>
+            <div class="list" id="diaryList"></div>
+          </article>
+          <article class="panel card">
+            <div class="section-head">
+              <h2>Diary Detail</h2>
+              <span id="diaryMeta" class="muted"></span>
+            </div>
+            <pre id="diaryContent" class="content">Select a diary from the left list.</pre>
+          </article>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-prompts">
+        <div class="grid two-col">
+          <article class="panel card">
+            <div class="section-head">
+              <h2>Prompt Templates</h2>
+              <button id="btnNewPrompt">New</button>
+            </div>
+            <div class="list" id="promptList"></div>
+          </article>
+          <article class="panel card">
+            <div class="section-head">
+              <h2>Prompt Editor</h2>
+              <span id="promptMeta" class="muted"></span>
+            </div>
+            <form id="promptForm" class="form-stack">
+              <label>
+                Name
+                <input id="promptName" required />
+              </label>
+              <label>
+                Description
+                <input id="promptDesc" />
+              </label>
+              <label>
+                Content
+                <textarea id="promptContent" rows="16" required></textarea>
+              </label>
+              <label class="checkline">
+                <input id="promptEnabled" type="checkbox" /> Enabled
+              </label>
+              <div class="row-actions">
+                <button type="submit">Save</button>
+                <button type="button" id="btnActivatePrompt">Set Active</button>
+                <button type="button" id="btnDeletePrompt" class="danger">Delete</button>
+              </div>
+            </form>
+          </article>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="tab-generate">
+        <article class="panel card">
+          <div class="section-head">
+            <h2>Generate Prompt Packet</h2>
+          </div>
+          <form id="generateForm" class="form-grid">
+            <label>
+              Date (UTC)
+              <input id="genDate" type="date" />
+            </label>
+            <label>
+              Hostname
+              <input id="genHost" placeholder="optional" />
+            </label>
+            <label>
+              Prompt
+              <select id="genPrompt"></select>
+            </label>
+            <label>
+              Output Directory
+              <input id="genOutput" placeholder="default diary dir" />
+            </label>
+            <label class="full">
+              Log Source Hints (one per line)
+              <textarea id="genHints" rows="5" placeholder="~/.openclaw/logs/work.log"></textarea>
+            </label>
+            <div class="full row-actions">
+              <button type="submit">Generate</button>
+            </div>
+          </form>
+          <pre id="generateResult" class="content slim">No packet generated yet.</pre>
+        </article>
+      </section>
+
+      <footer class="footer muted" id="globalStatus">Ready.</footer>
+    </main>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

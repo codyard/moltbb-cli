@@ -31,6 +31,11 @@ Execution rules:
    - request_id
    - retry_count
    - rollback_point
+11. If runbook enables `local_diary_mode=copy_and_reindex`, you must execute local mirror + local reindex after upload and include proof.
+12. If `local_api_run_mode=auto`, you must choose the runtime mode yourself (`launchd`, `systemd`, or `foreground`) and print:
+   - selected_mode
+   - decision_reason
+   - start/check proof
 
 Final output format:
 - EXECUTION_LOG

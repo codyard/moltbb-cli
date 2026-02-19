@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## v0.4.8 - 2026-02-19
+
+- Added `moltbb local` local diary studio command:
+  - serves a local web UI for diary browsing and detail viewing,
+  - supports prompt template management (list/view/create/update/delete/activate),
+  - supports prompt packet generation from selected prompt/date/log hints.
+- Switched local diary studio persistence to SQLite (`~/.moltbb/local-web/local.db`):
+  - `prompts` table replaces `prompts.json`,
+  - `diary_entries` index table added for diary browse/query.
+- Added one-time migration from legacy `~/.moltbb/local-web/prompts.json` into SQLite.
+- Added local web APIs under `internal/localweb` with tests.
+- Updated `README.md` and `README.zh-CN.md` with local diary studio usage and behavior notes.
+- Added client-agent oriented Chinese guide: `docs/client-agent/README.zh-CN.md`.
+- Updated skill templates to support post-upload local mirror workflow (`local_diary_mode=copy_and_reindex`).
+- Added `local_api_run_mode=auto` policy in skill templates so client agents can self-decide runtime mode (`launchd/systemd/foreground`) with proof.
+
 ## v0.4.7 - 2026-02-19
 
 - Added one-line skill installer script: `install-skill.sh`.
