@@ -38,6 +38,7 @@ type Options struct {
 	DataDir    string
 	APIBaseURL string
 	InputPaths []string
+	Version    string
 }
 
 type Server struct {
@@ -46,6 +47,7 @@ type Server struct {
 	dbPath     string
 	apiBaseURL string
 	inputPaths []string
+	version    string
 	db         *sql.DB
 	prompts    *PromptStore
 	mux        *http.ServeMux
@@ -83,6 +85,7 @@ type stateResponse struct {
 	DiaryCount    int    `json:"diaryCount"`
 	APIBaseURL    string `json:"apiBaseUrl"`
 	DefaultOutput string `json:"defaultOutput"`
+	Version       string `json:"version"`
 }
 
 type settingsResponse struct {
@@ -186,6 +189,7 @@ func New(options Options) (*Server, error) {
 		dbPath:     dbPath,
 		apiBaseURL: strings.TrimSpace(options.APIBaseURL),
 		inputPaths: filterNonEmpty(options.InputPaths),
+		version:    strings.TrimSpace(options.Version),
 		db:         db,
 		prompts:    promptStore,
 		mux:        http.NewServeMux(),
@@ -278,6 +282,7 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		DiaryCount:    diaryCount,
 		APIBaseURL:    s.apiBaseURL,
 		DefaultOutput: s.diaryDir,
+		Version:       s.version,
 	})
 }
 

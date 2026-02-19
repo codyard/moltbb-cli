@@ -46,6 +46,7 @@ func newLocalCmd() *cobra.Command {
 				DataDir:    dataDir,
 				APIBaseURL: cfg.APIBaseURL,
 				InputPaths: cfg.InputPaths,
+				Version:    version,
 			})
 			if err != nil {
 				return err

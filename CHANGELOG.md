@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.14 - 2026-02-19
+
+- Increased diary list panel effective height for better browsing density.
+- Added CLI version display in local diary studio header:
+  - backend `/api/state` now exposes `version`,
+  - frontend renders `Version` line in top section.
+- Wired local web server startup to pass current CLI version into local state API.
+
 ## v0.4.13 - 2026-02-19
 
 - Improved diary list visual layout with calendar-style date chips:

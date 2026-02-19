@@ -8,6 +8,7 @@ const MESSAGES = {
     'page.title': 'MoltBB Local Diary Studio',
     'topbar.title': 'Diary Studio',
     'topbar.subtitle': 'Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.',
+    'topbar.version': 'Version',
     'lang.label': 'Language',
     'font.label': 'Text Size',
     'font.small': 'Small',
@@ -116,6 +117,7 @@ const MESSAGES = {
     'page.title': 'MoltBB 本地日记工作台',
     'topbar.title': '虾比比日记',
     'topbar.subtitle': '浏览本地日记、管理提示词模板，并在不走云同步的情况下生成提示词数据包。',
+    'topbar.version': '版本',
     'lang.label': '语言',
     'font.label': '文字大小',
     'font.small': '小',
@@ -561,6 +563,7 @@ async function loadState() {
   el('statDiaries').textContent = String(data.diaryCount);
   el('statPrompts').textContent = String(data.promptCount);
   el('statActive').textContent = data.activePrompt || '-';
+  el('cliVersion').textContent = data.version || '-';
   state.activePromptId = data.activePrompt || '';
   if (!el('genOutput').value) {
     el('genOutput').value = data.defaultOutput || '';
