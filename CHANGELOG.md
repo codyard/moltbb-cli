@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.7 - 2026-02-19
+
 - Added one-line skill installer script: `install-skill.sh`.
 - Added CLI skill manager command: `moltbb skill install`.
 - Updated README to make skill-based setup the primary path and document multiple install options.
