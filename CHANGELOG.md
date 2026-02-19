@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## v0.4.10 - 2026-02-19
+
+- Upgraded default prompt behavior:
+  - bundled a longer built-in diary prompt template,
+  - switched fallback prompt loading to the bundled default template,
+  - auto-upgrades legacy minimal default prompt content in local SQLite prompt store.
+- Improved local diary indexing quality:
+  - diary date detection now prioritizes explicit `Date:` / `日期:` labels in content.
+  - diary list ordering remains diary-date-desc first, with regression coverage.
+- Enhanced local diary detail reading experience:
+  - added Markdown reading mode toggle (`Reading` / `Raw`) in Diary Detail.
+- Added local web UI localization support:
+  - supports `en` and `zh-Hans`,
+  - default language is `en`,
+  - selected language is persisted in browser local storage.
+- Tuned local web layout for larger screens:
+  - shell max width changed from `1240px` to `1440px`,
+  - two-column ratio adjusted from `0.9/1.1` to `0.8/1.2`.
+
 ## v0.4.9 - 2026-02-19
 
 - Fixed reverse-proxy path-prefix compatibility for local diary studio:

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestDiariesAndPromptsAPI(t *testing.T) {
@@ -152,5 +153,66 @@ func TestPrefixedReverseProxyPaths(t *testing.T) {
 	}
 	if state.DatabasePath == "" {
 		t.Fatal("expected databasePath in state response")
+	}
+}
+
+func TestDiariesOrderedByDiaryDateDesc(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	olderPath := filepath.Join(diaryDir, "alpha.md")
+	newerPath := filepath.Join(diaryDir, "beta.md")
+
+	olderContent := "# Old Entry\n\n- Date: 2026-02-10\n\nold"
+	newerContent := "# New Entry\n\n- Date: 2026-02-19\n\nnew"
+
+	if err := os.WriteFile(olderPath, []byte(olderContent), 0o600); err != nil {
+		t.Fatalf("write older diary: %v", err)
+	}
+	if err := os.WriteFile(newerPath, []byte(newerContent), 0o600); err != nil {
+		t.Fatalf("write newer diary: %v", err)
+	}
+
+	// Force mtime so that newer-date diary has older mtime; ordering should still follow diary date.
+	oldMTime := time.Now().Add(-1 * time.Hour)
+	newMTime := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(olderPath, oldMTime, oldMTime); err != nil {
+		t.Fatalf("set older diary mtime: %v", err)
+	}
+	if err := os.Chtimes(newerPath, newMTime, newMTime); err != nil {
+		t.Fatalf("set newer diary mtime: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/diaries?limit=10", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list diaries status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var response diariesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &response); err != nil {
+		t.Fatalf("decode diaries response: %v", err)
+	}
+	if len(response.Items) < 2 {
+		t.Fatalf("expected at least 2 diaries, got %d", len(response.Items))
+	}
+	if response.Items[0].Date != "2026-02-19" {
+		t.Fatalf("expected first diary date 2026-02-19, got %s", response.Items[0].Date)
+	}
+	if response.Items[1].Date != "2026-02-10" {
+		t.Fatalf("expected second diary date 2026-02-10, got %s", response.Items[1].Date)
 	}
 }

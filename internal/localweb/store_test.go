@@ -3,7 +3,10 @@ package localweb
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"moltbb-cli/internal/diary"
 )
 
 func TestPromptStoreMigratesLegacyJSON(t *testing.T) {
@@ -68,5 +71,39 @@ func TestPromptStoreMigratesLegacyJSON(t *testing.T) {
 
 	if _, err := os.Stat(legacyPath); !os.IsNotExist(err) {
 		t.Fatalf("expected legacy prompts file moved, stat err=%v", err)
+	}
+}
+
+func TestPromptStoreUpgradesLegacyDefaultPrompt(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	dbPath := filepath.Join(dir, "local.db")
+
+	db, err := OpenDB(dbPath)
+	if err != nil {
+		t.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	_, err = db.Exec(`
+INSERT INTO prompts(id, name, description, content, enabled, builtin, active, created_at, updated_at)
+VALUES('default', 'Default Diary Prompt', '', ?, 1, 1, 1, '2026-02-19T00:00:00Z', '2026-02-19T00:00:00Z')
+`, diary.LegacyMinimalPromptTemplate())
+	if err != nil {
+		t.Fatalf("insert legacy default prompt: %v", err)
+	}
+
+	store, err := NewPromptStore(db, "", diary.DefaultPromptTemplate())
+	if err != nil {
+		t.Fatalf("new prompt store: %v", err)
+	}
+
+	prompt, ok := store.Get("default")
+	if !ok {
+		t.Fatal("expected default prompt")
+	}
+	if strings.TrimSpace(prompt.Content) != strings.TrimSpace(diary.DefaultPromptTemplate()) {
+		t.Fatal("expected legacy default prompt to be upgraded to builtin long template")
 	}
 }

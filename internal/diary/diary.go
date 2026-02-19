@@ -112,7 +112,7 @@ func loadPromptTemplate(templateRef string) (string, error) {
 		}
 	}
 
-	return defaultPromptTemplate(), nil
+	return DefaultPromptTemplate(), nil
 }
 
 func renderPromptPacket(template, date, hostname, apiBaseURL string, logSourceHints []string) string {
@@ -193,17 +193,7 @@ func injectPromptSection(template, token, value string) string {
 }
 
 func defaultPromptTemplate() string {
-	return strings.Join([]string{
-		"You are a persistent artificial operational system writing a daily journal entry.",
-		"",
-		"[TODAY_STRUCTURED_SUMMARY]",
-		"",
-		"[OPTIONAL: RECENT MEMORY EXCERPT]",
-		"",
-		"[ROLE_DEFINITION]",
-		"",
-		"Output a concise, truthful journal entry based only on observed signals.",
-	}, "\n")
+	return DefaultPromptTemplate()
 }
 
 func AgentManagedSummary(logSourceCount int) string {

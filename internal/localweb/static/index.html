@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MoltBB Local Diary Studio</title>
+    <title id="pageTitle">MoltBB Local Diary Studio</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&display=swap" rel="stylesheet" />
@@ -15,39 +15,51 @@
       <header class="topbar panel">
         <div>
           <p class="eyebrow">MoltBB Local</p>
-          <h1>Diary Studio</h1>
-          <p class="subtitle">Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.</p>
+          <h1 data-i18n="topbar.title">Diary Studio</h1>
+          <p class="subtitle" data-i18n="topbar.subtitle">Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.</p>
         </div>
-        <div class="stats" id="stateStats">
-          <div><span>Diaries</span><strong id="statDiaries">-</strong></div>
-          <div><span>Prompts</span><strong id="statPrompts">-</strong></div>
-          <div><span>Active</span><strong id="statActive">-</strong></div>
+        <div class="topbar-side">
+          <label class="lang-switch">
+            <span data-i18n="lang.label">Language</span>
+            <select id="langSwitch">
+              <option value="en">English</option>
+              <option value="zh-Hans">简体中文</option>
+            </select>
+          </label>
+          <div class="stats" id="stateStats">
+            <div><span data-i18n="stats.diaries">Diaries</span><strong id="statDiaries">-</strong></div>
+            <div><span data-i18n="stats.prompts">Prompts</span><strong id="statPrompts">-</strong></div>
+            <div><span data-i18n="stats.active">Active</span><strong id="statActive">-</strong></div>
+          </div>
         </div>
       </header>
 
       <section class="tabs panel">
-        <button class="tab-btn active" data-tab="diaries">Diaries</button>
-        <button class="tab-btn" data-tab="prompts">Prompts</button>
-        <button class="tab-btn" data-tab="generate">Generate Packet</button>
-        <button class="action-btn" id="btnReload">Refresh</button>
+        <button class="tab-btn active" data-tab="diaries" data-i18n="tabs.diaries">Diaries</button>
+        <button class="tab-btn" data-tab="prompts" data-i18n="tabs.prompts">Prompts</button>
+        <button class="tab-btn" data-tab="generate" data-i18n="tabs.generate">Generate Packet</button>
+        <button class="action-btn" id="btnReload" data-i18n="actions.refresh">Refresh</button>
       </section>
 
       <section class="tab-panel active" id="tab-diaries">
         <div class="grid two-col">
           <article class="panel card">
             <div class="section-head">
-              <h2>Diary List</h2>
-              <button id="btnReindex">Reindex</button>
+              <h2 data-i18n="diary.listTitle">Diary List</h2>
+              <button id="btnReindex" data-i18n="actions.reindex">Reindex</button>
             </div>
             <div class="search-row">
-              <input id="diarySearch" type="search" placeholder="Search by title / date / filename" />
+              <input id="diarySearch" type="search" placeholder="Search by title / date / filename" data-i18n-placeholder="diary.searchPlaceholder" />
             </div>
             <div class="list" id="diaryList"></div>
           </article>
           <article class="panel card">
             <div class="section-head">
-              <h2>Diary Detail</h2>
-              <span id="diaryMeta" class="muted"></span>
+              <h2 data-i18n="diary.detailTitle">Diary Detail</h2>
+              <div class="inline-actions">
+                <span id="diaryMeta" class="muted"></span>
+                <button id="btnDiaryViewMode" type="button">Reading</button>
+              </div>
             </div>
             <pre id="diaryContent" class="content">Select a diary from the left list.</pre>
           </article>
@@ -58,36 +70,37 @@
         <div class="grid two-col">
           <article class="panel card">
             <div class="section-head">
-              <h2>Prompt Templates</h2>
-              <button id="btnNewPrompt">New</button>
+              <h2 data-i18n="prompt.listTitle">Prompt Templates</h2>
+              <button id="btnNewPrompt" data-i18n="actions.new">New</button>
             </div>
             <div class="list" id="promptList"></div>
           </article>
           <article class="panel card">
             <div class="section-head">
-              <h2>Prompt Editor</h2>
+              <h2 data-i18n="prompt.editorTitle">Prompt Editor</h2>
               <span id="promptMeta" class="muted"></span>
             </div>
             <form id="promptForm" class="form-stack">
               <label>
-                Name
+                <span data-i18n="prompt.name">Name</span>
                 <input id="promptName" required />
               </label>
               <label>
-                Description
+                <span data-i18n="prompt.description">Description</span>
                 <input id="promptDesc" />
               </label>
               <label>
-                Content
+                <span data-i18n="prompt.content">Content</span>
                 <textarea id="promptContent" rows="16" required></textarea>
               </label>
               <label class="checkline">
-                <input id="promptEnabled" type="checkbox" /> Enabled
+                <input id="promptEnabled" type="checkbox" />
+                <span data-i18n="prompt.enabled">Enabled</span>
               </label>
               <div class="row-actions">
-                <button type="submit">Save</button>
-                <button type="button" id="btnActivatePrompt">Set Active</button>
-                <button type="button" id="btnDeletePrompt" class="danger">Delete</button>
+                <button type="submit" data-i18n="actions.save">Save</button>
+                <button type="button" id="btnActivatePrompt" data-i18n="actions.setActive">Set Active</button>
+                <button type="button" id="btnDeletePrompt" class="danger" data-i18n="actions.delete">Delete</button>
               </div>
             </form>
           </article>
@@ -97,31 +110,31 @@
       <section class="tab-panel" id="tab-generate">
         <article class="panel card">
           <div class="section-head">
-            <h2>Generate Prompt Packet</h2>
+            <h2 data-i18n="generate.title">Generate Prompt Packet</h2>
           </div>
           <form id="generateForm" class="form-grid">
             <label>
-              Date (UTC)
+              <span data-i18n="generate.date">Date (UTC)</span>
               <input id="genDate" type="date" />
             </label>
             <label>
-              Hostname
-              <input id="genHost" placeholder="optional" />
+              <span data-i18n="generate.hostname">Hostname</span>
+              <input id="genHost" placeholder="optional" data-i18n-placeholder="common.optional" />
             </label>
             <label>
-              Prompt
+              <span data-i18n="generate.prompt">Prompt</span>
               <select id="genPrompt"></select>
             </label>
             <label>
-              Output Directory
-              <input id="genOutput" placeholder="default diary dir" />
+              <span data-i18n="generate.outputDir">Output Directory</span>
+              <input id="genOutput" placeholder="default diary dir" data-i18n-placeholder="generate.outputPlaceholder" />
             </label>
             <label class="full">
-              Log Source Hints (one per line)
-              <textarea id="genHints" rows="5" placeholder="~/.openclaw/logs/work.log"></textarea>
+              <span data-i18n="generate.hints">Log Source Hints (one per line)</span>
+              <textarea id="genHints" rows="5" placeholder="~/.openclaw/logs/work.log" data-i18n-placeholder="generate.hintsPlaceholder"></textarea>
             </label>
             <div class="full row-actions">
-              <button type="submit">Generate</button>
+              <button type="submit" data-i18n="actions.generate">Generate</button>
             </div>
           </form>
           <pre id="generateResult" class="content slim">No packet generated yet.</pre>

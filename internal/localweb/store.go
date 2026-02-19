@@ -15,6 +15,7 @@ import (
 
 	_ "modernc.org/sqlite"
 
+	"moltbb-cli/internal/diary"
 	"moltbb-cli/internal/utils"
 )
 
@@ -135,6 +136,7 @@ func NewPromptStore(db *sql.DB, legacyPath string, defaultContent string) (*Prom
 func (s *PromptStore) bootstrap(defaultContent string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defaultContent = strings.TrimSpace(defaultContent)
 
 	count, err := s.countPromptsLocked()
 	if err != nil {
@@ -147,13 +149,16 @@ func (s *PromptStore) bootstrap(defaultContent string) error {
 			return err
 		}
 		if !migrated {
-			if err := s.insertDefaultPromptLocked(strings.TrimSpace(defaultContent)); err != nil {
+			if err := s.insertDefaultPromptLocked(defaultContent); err != nil {
 				return err
 			}
 		}
 	}
 
-	return s.ensurePromptConsistencyLocked()
+	if err := s.ensurePromptConsistencyLocked(); err != nil {
+		return err
+	}
+	return s.upgradeLegacyDefaultPromptLocked(defaultContent)
 }
 
 func (s *PromptStore) List() []PromptMeta {
@@ -536,7 +541,7 @@ func (s *PromptStore) promoteAnyEnabledPromptLocked(skipID string) error {
 func (s *PromptStore) insertDefaultPromptLocked(content string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	if strings.TrimSpace(content) == "" {
-		content = "[TODAY_STRUCTURED_SUMMARY]\n[OPTIONAL: RECENT MEMORY EXCERPT]\n[ROLE_DEFINITION]"
+		content = diary.DefaultPromptTemplate()
 	}
 	_, err := s.db.Exec(`
 INSERT INTO prompts(id, name, description, content, enabled, builtin, active, created_at, updated_at)
@@ -544,6 +549,33 @@ VALUES('default', 'Default Diary Prompt', 'Bundled prompt template for diary gen
 `, strings.TrimSpace(content), now, now)
 	if err != nil {
 		return fmt.Errorf("insert default prompt: %w", err)
+	}
+	return nil
+}
+
+func (s *PromptStore) upgradeLegacyDefaultPromptLocked(defaultContent string) error {
+	if strings.TrimSpace(defaultContent) == "" {
+		return nil
+	}
+
+	prompt, _, ok := s.getPromptByIDLocked("default")
+	if !ok || !prompt.Builtin {
+		return nil
+	}
+
+	current := strings.TrimSpace(prompt.Content)
+	legacy := diary.LegacyMinimalPromptTemplate()
+	if current != legacy {
+		return nil
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := s.db.Exec(`
+UPDATE prompts
+SET content = ?, updated_at = ?
+WHERE id = 'default'
+`, defaultContent, now); err != nil {
+		return fmt.Errorf("upgrade legacy default prompt: %w", err)
 	}
 	return nil
 }

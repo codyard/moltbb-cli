@@ -58,7 +58,7 @@ body::before {
 }
 
 .shell {
-  width: min(1240px, 96vw);
+  width: min(1440px, 96vw);
   margin: 1.6rem auto 1.8rem;
   display: grid;
   gap: 0.95rem;
@@ -113,6 +113,26 @@ h2 {
   display: flex;
   gap: 0.65rem;
   flex-wrap: wrap;
+}
+
+.topbar-side {
+  display: grid;
+  gap: 0.62rem;
+  justify-items: end;
+}
+
+.lang-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.48rem;
+  color: var(--text-1);
+  font-size: 0.8rem;
+}
+
+.lang-switch select {
+  width: auto;
+  min-width: 132px;
+  padding: 0.34rem 0.5rem;
 }
 
 .stats div {
@@ -180,7 +200,7 @@ button {
 }
 
 .two-col {
-  grid-template-columns: 0.9fr 1.1fr;
+  grid-template-columns: 0.8fr 1.2fr;
 }
 
 .card {
@@ -194,6 +214,16 @@ button {
   align-items: center;
   gap: 0.7rem;
   margin-bottom: 0.78rem;
+}
+
+.inline-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inline-actions .muted {
+  white-space: nowrap;
 }
 
 .search-row {
@@ -275,6 +305,81 @@ textarea {
   min-height: 180px;
 }
 
+.content.markdown-view {
+  font-family: 'Chakra Petch', sans-serif;
+  line-height: 1.68;
+}
+
+.content.markdown-view h1,
+.content.markdown-view h2,
+.content.markdown-view h3,
+.content.markdown-view h4 {
+  margin: 0.95rem 0 0.45rem;
+  font-family: 'Fraunces', serif;
+}
+
+.content.markdown-view h1 {
+  font-size: 1.58rem;
+}
+
+.content.markdown-view h2 {
+  font-size: 1.36rem;
+}
+
+.content.markdown-view h3 {
+  font-size: 1.14rem;
+}
+
+.content.markdown-view p {
+  margin: 0.6rem 0;
+}
+
+.content.markdown-view ul,
+.content.markdown-view ol {
+  margin: 0.55rem 0 0.85rem 1.2rem;
+  padding: 0;
+}
+
+.content.markdown-view li {
+  margin: 0.22rem 0;
+}
+
+.content.markdown-view blockquote {
+  margin: 0.8rem 0;
+  padding: 0.38rem 0.78rem;
+  border-left: 3px solid rgba(93, 228, 255, 0.52);
+  color: var(--text-1);
+  background: rgba(93, 228, 255, 0.08);
+}
+
+.content.markdown-view pre {
+  margin: 0.9rem 0;
+  padding: 0.68rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(4, 10, 21, 0.92);
+  overflow: auto;
+}
+
+.content.markdown-view code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.92em;
+  background: rgba(255, 255, 255, 0.09);
+  border-radius: 5px;
+  padding: 0.06rem 0.24rem;
+}
+
+.content.markdown-view pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.content.markdown-view a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .form-stack,
 .form-grid {
   display: grid;
@@ -335,6 +440,10 @@ button.danger {
   .topbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .topbar-side {
+    justify-items: start;
   }
 
   .card {

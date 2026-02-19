@@ -25,6 +25,7 @@ import (
 var staticFS embed.FS
 
 var diaryDateRe = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}\b`)
+var diaryLabelDateRe = regexp.MustCompile(`(?im)^\s*(?:[-*]\s*)?(?:date|日期)\s*:\s*(\d{4}-\d{2}-\d{2})\s*$`)
 
 type Options struct {
 	DiaryDir   string
@@ -730,18 +731,17 @@ func loadDefaultPromptTemplate() string {
 		}
 	}
 
-	return strings.Join([]string{
-		"You are a persistent artificial operational system writing a daily journal entry.",
-		"",
-		"[TODAY_STRUCTURED_SUMMARY]",
-		"",
-		"[OPTIONAL: RECENT MEMORY EXCERPT]",
-		"",
-		"[ROLE_DEFINITION]",
-	}, "\n")
+	return diary.DefaultPromptTemplate()
 }
 
 func detectDiaryDate(base string, content []byte) string {
+	if matches := diaryLabelDateRe.FindStringSubmatch(string(content)); len(matches) == 2 {
+		labelDate := strings.TrimSpace(matches[1])
+		if _, err := time.Parse("2006-01-02", labelDate); err == nil {
+			return labelDate
+		}
+	}
+
 	if len(base) >= 10 {
 		prefix := base[:10]
 		if _, err := time.Parse("2006-01-02", prefix); err == nil {
