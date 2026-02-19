@@ -32,6 +32,7 @@ func main() {
 	root.AddCommand(newInitCmd())
 	root.AddCommand(newOnboardCmd())
 	root.AddCommand(newUpdateCmd())
+	root.AddCommand(newSkillCmd())
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newLoginCmd())
 	root.AddCommand(newBindCmd())
