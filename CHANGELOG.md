@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.9 - 2026-02-19
+
+- Fixed reverse-proxy path-prefix compatibility for local diary studio:
+  - static assets now use relative URLs (`styles.css`, `app.js`) to avoid MIME mismatch behind prefixed routes.
+  - frontend API requests now resolve relative to current mount path (for example `/moltbb-local/api/...`).
+  - server now rewrites prefixed paths (`/moltbb-local/styles.css`, `/moltbb-local/api/*`) to internal routes.
+- Added regression tests for prefixed reverse-proxy paths.
+- Added nginx path-prefix guidance in `docs/local-diary-studio.md`.
+
 ## v0.4.8 - 2026-02-19
 
 - Added `moltbb local` local diary studio command:

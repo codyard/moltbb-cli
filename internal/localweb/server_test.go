@@ -110,3 +110,47 @@ func TestGeneratePacketAPI(t *testing.T) {
 		t.Fatal("packet missing injected structured summary token")
 	}
 }
+
+func TestPrefixedReverseProxyPaths(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(diaryDir, "2026-02-19.md"), []byte("# Demo\n\nDiary content here."), 0o600); err != nil {
+		t.Fatalf("write diary: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/moltbb-local/styles.css", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prefixed styles.css status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "text/css") {
+		t.Fatalf("expected css content-type, got %q", ct)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/moltbb-local/api/state", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prefixed /api/state status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var state stateResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &state); err != nil {
+		t.Fatalf("decode state response: %v", err)
+	}
+	if state.DatabasePath == "" {
+		t.Fatal("expected databasePath in state response")
+	}
+}

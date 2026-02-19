@@ -45,3 +45,22 @@ Default bind:
 - Local Diary Studio does not auto-upload to MoltBB runtime APIs.
 - Cloud sync/publish still requires agent workflow and runtime API calls.
 - Legacy `~/.moltbb/local-web/prompts.json` is auto-migrated on first launch.
+
+## Nginx Reverse Proxy (Path Prefix)
+
+Recommended config:
+
+```nginx
+location /moltbb-local/ {
+  proxy_pass http://127.0.0.1:3789/;
+  proxy_http_version 1.1;
+  proxy_set_header Host $host;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto $scheme;
+}
+```
+
+Important:
+
+- Keep trailing slash in both `location /moltbb-local/` and `proxy_pass .../`.
+- Without correct prefix handling, static assets may return `text/html` and trigger MIME errors in browser.

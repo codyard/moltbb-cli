@@ -7,9 +7,31 @@ const state = {
 };
 
 const el = (id) => document.getElementById(id);
+const mountPath = (() => {
+  const path = window.location.pathname || '/';
+  if (path.endsWith('/')) {
+    return path;
+  }
+  const last = path.slice(path.lastIndexOf('/') + 1);
+  if (last.includes('.')) {
+    return path.slice(0, path.lastIndexOf('/') + 1) || '/';
+  }
+  return `${path}/`;
+})();
+const apiBase = `${mountPath}api`;
+
+function apiPath(path) {
+  if (!path) {
+    return apiBase;
+  }
+  if (path.startsWith('/')) {
+    return `${apiBase}${path}`;
+  }
+  return `${apiBase}/${path}`;
+}
 
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(apiPath(path), {
     headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
     ...options,
   });
@@ -51,7 +73,7 @@ function switchTab(name) {
 }
 
 async function loadState() {
-  const data = await api('/api/state');
+  const data = await api('/state');
   el('statDiaries').textContent = String(data.diaryCount);
   el('statPrompts').textContent = String(data.promptCount);
   el('statActive').textContent = data.activePrompt || '-';
@@ -87,7 +109,7 @@ function renderDiaryList(items) {
 
 async function loadDiaries() {
   const q = el('diarySearch').value.trim();
-  const data = await api(`/api/diaries?limit=200&q=${encodeURIComponent(q)}`);
+  const data = await api(`/diaries?limit=200&q=${encodeURIComponent(q)}`);
   state.diaries = data.items || [];
   if (!state.currentDiaryId && state.diaries[0]) {
     state.currentDiaryId = state.diaries[0].id;
@@ -103,7 +125,7 @@ async function loadDiaries() {
 
 async function loadDiaryDetail(id, rerender = true) {
   try {
-    const data = await api(`/api/diaries/${encodeURIComponent(id)}`);
+    const data = await api(`/diaries/${encodeURIComponent(id)}`);
     state.currentDiaryId = data.id;
     if (rerender) {
       renderDiaryList(state.diaries);
@@ -152,7 +174,7 @@ function fillPromptSelector() {
 }
 
 async function loadPrompts() {
-  const data = await api('/api/prompts');
+  const data = await api('/prompts');
   state.prompts = data.items || [];
   state.activePromptId = data.activePromptId || '';
   if (!state.currentPromptId) {
@@ -166,7 +188,7 @@ async function loadPrompts() {
 }
 
 async function loadPromptDetail(id, rerender = true) {
-  const data = await api(`/api/prompts/${encodeURIComponent(id)}`);
+  const data = await api(`/prompts/${encodeURIComponent(id)}`);
   state.currentPromptId = data.id;
   if (rerender) {
     renderPromptList();
@@ -205,10 +227,10 @@ async function savePrompt(event) {
   }
 
   if (!state.currentPromptId) {
-    await api('/api/prompts', { method: 'POST', body: JSON.stringify(payload) });
+    await api('/prompts', { method: 'POST', body: JSON.stringify(payload) });
     setStatus('Prompt created.');
   } else {
-    await api(`/api/prompts/${encodeURIComponent(state.currentPromptId)}`, {
+    await api(`/prompts/${encodeURIComponent(state.currentPromptId)}`, {
       method: 'PATCH',
       body: JSON.stringify(payload),
     });
@@ -224,7 +246,7 @@ async function activatePrompt() {
     setStatus('Select a prompt first.', true);
     return;
   }
-  await api(`/api/prompts/${encodeURIComponent(state.currentPromptId)}/activate`, { method: 'POST' });
+  await api(`/prompts/${encodeURIComponent(state.currentPromptId)}/activate`, { method: 'POST' });
   setStatus(`Activated prompt: ${state.currentPromptId}`);
   await loadPrompts();
   await loadState();
@@ -238,7 +260,7 @@ async function deletePrompt() {
   if (!yes) {
     return;
   }
-  await api(`/api/prompts/${encodeURIComponent(state.currentPromptId)}`, { method: 'DELETE' });
+  await api(`/prompts/${encodeURIComponent(state.currentPromptId)}`, { method: 'DELETE' });
   state.currentPromptId = null;
   setStatus('Prompt deleted.');
   await loadPrompts();
@@ -260,7 +282,7 @@ async function generatePacket(event) {
     logSourceHints: hints,
   };
 
-  const data = await api('/api/generate-packet', {
+  const data = await api('/generate-packet', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -270,7 +292,7 @@ async function generatePacket(event) {
 }
 
 async function reindex() {
-  const data = await api('/api/diaries/reindex', { method: 'POST' });
+  const data = await api('/diaries/reindex', { method: 'POST' });
   setStatus(`Reindex completed: ${data.diaryCount} diaries.`);
   await loadDiaries();
   await loadState();

@@ -166,6 +166,14 @@ func New(options Options) (*Server, error) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if rewrittenPath, ok := rewritePrefixedPath(r.URL.Path); ok {
+		cloned := r.Clone(r.Context())
+		clonedURL := *r.URL
+		clonedURL.Path = rewrittenPath
+		cloned.URL = &clonedURL
+		s.mux.ServeHTTP(w, cloned)
+		return
+	}
 	s.mux.ServeHTTP(w, r)
 }
 
@@ -831,6 +839,29 @@ func filterNonEmpty(in []string) []string {
 		}
 	}
 	return out
+}
+
+func rewritePrefixedPath(path string) (string, bool) {
+	switch path {
+	case "", "/", "/index.html", "/styles.css", "/app.js":
+		return "", false
+	}
+	if strings.HasPrefix(path, "/api/") {
+		return "", false
+	}
+	if strings.HasSuffix(path, "/styles.css") {
+		return "/styles.css", true
+	}
+	if strings.HasSuffix(path, "/app.js") {
+		return "/app.js", true
+	}
+	if strings.HasSuffix(path, "/index.html") {
+		return "/index.html", true
+	}
+	if idx := strings.Index(path, "/api/"); idx >= 0 {
+		return path[idx:], true
+	}
+	return "", false
 }
 
 func allowMethod(w http.ResponseWriter, r *http.Request, allowed string) bool {
