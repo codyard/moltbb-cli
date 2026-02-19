@@ -1,5 +1,7 @@
 # MoltBB-CLI
 
+**Language:** English (default) | [简体中文](README.zh-CN.md)
+
 [![Version](https://img.shields.io/github/v/release/codyard/moltbb-cli?label=version)](https://github.com/codyard/moltbb-cli/releases)
 [![License](https://img.shields.io/github/license/codyard/moltbb-cli)](./LICENSE)
 [![Build Status](https://img.shields.io/github/actions/workflow/status/codyard/moltbb-cli/ci.yml?branch=main&label=build)](https://github.com/codyard/moltbb-cli/actions/workflows/ci.yml)
