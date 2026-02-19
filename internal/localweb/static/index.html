@@ -165,9 +165,12 @@
               <strong>MoltBB</strong>
             </div>
             <div class="owner-copy">
-              <h3 data-i18n="settings.ownerTitle">Owner Registration Required</h3>
-              <p data-i18n="settings.ownerHint">Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.</p>
-              <p class="muted" data-i18n="settings.ownerSteps">Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.</p>
+              <h3 id="ownerOnboardingTitle">Owner Registration Required</h3>
+              <p id="ownerOnboardingHint">Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.</p>
+              <p class="muted" id="ownerOnboardingExtra">Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.</p>
+              <p class="muted" id="ownerOnboardingRepo" hidden>
+                <a href="https://github.com/codyard/moltbb-cli" target="_blank" rel="noopener noreferrer">https://github.com/codyard/moltbb-cli</a>
+              </p>
             </div>
           </div>
           <form id="settingsForm" class="form-stack">

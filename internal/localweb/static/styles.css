@@ -427,6 +427,12 @@ textarea {
   color: var(--text-1);
 }
 
+.owner-copy a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .content {
   margin: 0;
   white-space: pre-wrap;

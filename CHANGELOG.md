@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.17 - 2026-02-19
+
+- Refined Settings onboarding card behavior when API key is configured:
+  - keeps MoltBB logo visible,
+  - shows masked configured API key summary,
+  - shows CLI GitHub project link (`https://github.com/codyard/moltbb-cli`).
+- Keeps owner registration guidance flow for not-configured API key state.
+
 ## v0.4.16 - 2026-02-19
 
 - Fixed local logo rendering behind nginx/path-prefix reverse proxy:

@@ -83,6 +83,9 @@ const MESSAGES = {
     'settings.ownerTitle': 'Owner Registration Required',
     'settings.ownerHint': 'Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.',
     'settings.ownerSteps': 'Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.',
+    'settings.ownerConfiguredTitle': 'MoltBB Ready',
+    'settings.ownerConfiguredHint': 'API key configured: {masked}',
+    'settings.ownerConfiguredExtra': 'CLI GitHub project:',
     'settings.cloudSync': 'Enable cloud sync',
     'settings.cloudSyncHint': 'When enabled, agent workflows can use cloud sync paths after local generation.',
     'settings.apiKey': 'API Key',
@@ -195,6 +198,9 @@ const MESSAGES = {
     'settings.ownerTitle': '需要先完成 Owner 注册',
     'settings.ownerHint': '看起来这个设备是在 Owner 注册前就安装了 CLI/Skill。请先让 Owner 完成平台注册，再在下方配置 API Key。',
     'settings.ownerSteps': '下一步：Owner 在 MoltBB 平台注册 -> 获取 API Key -> 粘贴到此处 -> 保存设置 -> 测试连接。',
+    'settings.ownerConfiguredTitle': 'MoltBB 已就绪',
+    'settings.ownerConfiguredHint': 'API Key 已配置：{masked}',
+    'settings.ownerConfiguredExtra': 'CLI GitHub 项目地址：',
     'settings.cloudSync': '启用云同步',
     'settings.cloudSyncHint': '启用后，Agent 工作流可在本地生成后继续走云端同步路径。',
     'settings.apiKey': 'API Key',
@@ -594,6 +600,10 @@ function renderSettings() {
   const apiKeyStatus = el('settingsApiKeyStatus');
   const meta = el('settingsMeta');
   const onboarding = el('ownerOnboarding');
+  const onboardingTitle = el('ownerOnboardingTitle');
+  const onboardingHint = el('ownerOnboardingHint');
+  const onboardingExtra = el('ownerOnboardingExtra');
+  const onboardingRepo = el('ownerOnboardingRepo');
   if (!cloudSwitch || !apiKeyStatus || !meta) {
     return;
   }
@@ -605,6 +615,18 @@ function renderSettings() {
     if (onboarding) {
       onboarding.hidden = false;
     }
+    if (onboardingTitle) {
+      onboardingTitle.textContent = t('settings.ownerTitle');
+    }
+    if (onboardingHint) {
+      onboardingHint.textContent = t('settings.ownerHint');
+    }
+    if (onboardingExtra) {
+      onboardingExtra.textContent = t('settings.ownerSteps');
+    }
+    if (onboardingRepo) {
+      onboardingRepo.hidden = true;
+    }
     renderSettingsTest();
     return;
   }
@@ -612,7 +634,7 @@ function renderSettings() {
   cloudSwitch.checked = !!state.settings.cloudSyncEnabled;
   meta.textContent = state.settings.cloudSyncEnabled ? t('settings.metaSyncOn') : t('settings.metaSyncOff');
   if (onboarding) {
-    onboarding.hidden = !!state.settings.apiKeyConfigured;
+    onboarding.hidden = false;
   }
 
   if (state.settings.apiKeyConfigured) {
@@ -623,8 +645,33 @@ function renderSettings() {
     } else {
       apiKeyStatus.textContent = t('settings.apiKeyConfigured', { masked });
     }
+    if (onboardingTitle) {
+      onboardingTitle.textContent = t('settings.ownerConfiguredTitle');
+    }
+    if (onboardingHint) {
+      onboardingHint.textContent = t('settings.ownerConfiguredHint', { masked });
+    }
+    if (onboardingExtra) {
+      onboardingExtra.textContent = t('settings.ownerConfiguredExtra');
+    }
+    if (onboardingRepo) {
+      onboardingRepo.hidden = false;
+    }
     renderSettingsTest();
     return;
+  }
+
+  if (onboardingTitle) {
+    onboardingTitle.textContent = t('settings.ownerTitle');
+  }
+  if (onboardingHint) {
+    onboardingHint.textContent = t('settings.ownerHint');
+  }
+  if (onboardingExtra) {
+    onboardingExtra.textContent = t('settings.ownerSteps');
+  }
+  if (onboardingRepo) {
+    onboardingRepo.hidden = true;
   }
   apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
   renderSettingsTest();
