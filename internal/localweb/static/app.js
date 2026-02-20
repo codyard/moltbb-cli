@@ -5,7 +5,13 @@ const SUPPORTED_FONT_SIZES = ['small', 'medium', 'large'];
 
 const MESSAGES = {
   en: {
-    'page.title': 'MoltBB Local Diary Studio',
+    'page.title': 'MoltBB Console · Diaries',
+    'title.brand': 'MoltBB Console',
+    'title.page.diaries': 'Diaries',
+    'title.page.calendar': 'Calendar',
+    'title.page.prompts': 'Prompts',
+    'title.page.generate': 'Generate Packet',
+    'title.page.settings': 'Settings',
     'topbar.title': 'Diary Studio',
     'topbar.subtitle': 'Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.',
     'topbar.version': 'Version',
@@ -170,7 +176,13 @@ const MESSAGES = {
     'common.na': 'n/a',
   },
   'zh-Hans': {
-    'page.title': 'MoltBB 本地日记工作台',
+    'page.title': 'MoltBB 控制台 · 日记',
+    'title.brand': 'MoltBB 控制台',
+    'title.page.diaries': '日记',
+    'title.page.calendar': '日历',
+    'title.page.prompts': '提示词',
+    'title.page.generate': '生成数据包',
+    'title.page.settings': '设置',
     'topbar.title': '虾比比日记',
     'topbar.subtitle': '浏览本地日记、管理提示词模板，并在不走云同步的情况下生成提示词数据包。',
     'topbar.version': '版本',
@@ -362,6 +374,7 @@ const state = {
   apiBaseUrl: '',
   locale: 'en',
   fontSize: 'small',
+  currentTab: 'diaries',
   hasGeneratedPacket: false,
 };
 
@@ -725,13 +738,16 @@ function setDiaryEmptyState() {
 }
 
 function switchTab(name) {
+  const tab = String(name || '').trim() || 'diaries';
+  state.currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach((btn) => {
-    btn.classList.toggle('active', btn.dataset.tab === name);
+    btn.classList.toggle('active', btn.dataset.tab === tab);
   });
   document.querySelectorAll('.tab-panel').forEach((panel) => {
-    panel.classList.toggle('active', panel.id === `tab-${name}`);
+    panel.classList.toggle('active', panel.id === `tab-${tab}`);
   });
-  if (name === 'calendar') {
+  updateDocumentTitle();
+  if (tab === 'calendar') {
     renderDiaryHistoryCalendar();
     renderCalendarDiaryDetail();
     ensureCalendarDefaultSelection().catch((err) => {
@@ -1799,8 +1815,30 @@ async function testSettingsConnection() {
   }
 }
 
+function resolvePageTitle(tabName) {
+  const safeTab = String(tabName || '').trim();
+  if (!safeTab) {
+    return '';
+  }
+  const key = `title.page.${safeTab}`;
+  const localized = messageFor(state.locale, key);
+  if (localized !== key) {
+    return localized;
+  }
+  return safeTab;
+}
+
+function updateDocumentTitle() {
+  const page = resolvePageTitle(state.currentTab);
+  if (!page) {
+    document.title = t('page.title');
+    return;
+  }
+  document.title = `${t('title.brand')} · ${page}`;
+}
+
 function applyStaticI18n() {
-  document.title = t('page.title');
+  updateDocumentTitle();
   document.documentElement.lang = state.locale;
 
   document.querySelectorAll('[data-i18n]').forEach((node) => {

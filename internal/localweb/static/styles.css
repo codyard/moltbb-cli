@@ -1041,7 +1041,17 @@ button.danger {
 }
 
 .footer {
-  padding: 0 0.2rem;
+  padding: 0.1rem 0.2rem 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.footer-copyright {
+  color: var(--text-1);
+  font-size: 0.78rem;
 }
 
 @media (max-width: 980px) {

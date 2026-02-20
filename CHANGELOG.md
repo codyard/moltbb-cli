@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.33 - 2026-02-20
+
+- Improved local web page title behavior:
+  - title now follows `MoltBB Console · <Page>` in English and `MoltBB 控制台 · <页面>` in Chinese,
+  - title updates automatically when switching language or top tabs.
+- Added footer copyright line in local web:
+  - `Copyright 2026~2027 Codyard Studio. All rights reserved.`
+
 ## v0.4.32 - 2026-02-20
 
 - Fixed local web topbar logo sizing:
