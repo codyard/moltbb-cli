@@ -529,6 +529,59 @@ func TestInsightsAPIProxyCRUD(t *testing.T) {
 	}
 }
 
+func TestInsightsListReturnsUnsupportedWhenRuntimeEndpointMissing(t *testing.T) {
+	expectedAPIKey := "sk-insight-unsupported"
+	t.Setenv("MOLTBB_API_KEY", expectedAPIKey)
+
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-API-Key"); got != expectedAPIKey {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"success":false,"message":"invalid key"}`))
+			return
+		}
+		if r.Method == http.MethodGet && r.URL.Path == "/api/v1/runtime/insights" {
+			w.WriteHeader(http.StatusNotFound)
+			_, _ = w.Write([]byte(`{"success":false,"error":"not found"}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer remote.Close()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: remote.URL,
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/insights", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list insights status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var listResp insightsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &listResp); err != nil {
+		t.Fatalf("decode list response: %v", err)
+	}
+	if !listResp.Unsupported {
+		t.Fatalf("expected unsupported=true, got %+v", listResp)
+	}
+	if listResp.Total != 0 || len(listResp.Items) != 0 {
+		t.Fatalf("expected empty insights when unsupported, got total=%d len=%d", listResp.Total, len(listResp.Items))
+	}
+	if !strings.Contains(strings.ToLower(listResp.Notice), "runtime insights endpoint is unavailable") {
+		t.Fatalf("expected unsupported notice, got %q", listResp.Notice)
+	}
+}
+
 func TestDiarySearchMatchesFullContent(t *testing.T) {
 	t.Parallel()
 

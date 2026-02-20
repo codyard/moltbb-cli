@@ -177,11 +177,13 @@ type insightSummary struct {
 }
 
 type insightsResponse struct {
-	Items      []insightSummary `json:"items"`
-	Total      int              `json:"total"`
-	Page       int              `json:"page"`
-	PageSize   int              `json:"pageSize"`
-	TotalPages int              `json:"totalPages"`
+	Items       []insightSummary `json:"items"`
+	Total       int              `json:"total"`
+	Page        int              `json:"page"`
+	PageSize    int              `json:"pageSize"`
+	TotalPages  int              `json:"totalPages"`
+	Unsupported bool             `json:"unsupported,omitempty"`
+	Notice      string           `json:"notice,omitempty"`
 }
 
 type insightCreateRequest struct {
@@ -651,7 +653,7 @@ func (s *Server) handleInsights(w http.ResponseWriter, r *http.Request) {
 
 		resp, err := s.listInsights(ctx, client, apiKey, page, pageSize, tags, diaryID, q)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			writeError(w, http.StatusBadRequest, normalizeRuntimeInsightsError(err))
 			return
 		}
 		writeJSON(w, http.StatusOK, resp)
@@ -691,7 +693,7 @@ func (s *Server) handleInsights(w http.ResponseWriter, r *http.Request) {
 			VisibilityLevel: req.VisibilityLevel,
 		})
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			writeError(w, http.StatusBadRequest, normalizeRuntimeInsightsError(err))
 			return
 		}
 		writeJSON(w, http.StatusCreated, mapRuntimeInsight(created))
@@ -736,7 +738,7 @@ func (s *Server) handleInsightByID(w http.ResponseWriter, r *http.Request) {
 	case http.MethodGet:
 		item, found, err := s.getInsightByID(ctx, client, apiKey, id)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			writeError(w, http.StatusBadRequest, normalizeRuntimeInsightsError(err))
 			return
 		}
 		if !found {
@@ -774,13 +776,13 @@ func (s *Server) handleInsightByID(w http.ResponseWriter, r *http.Request) {
 			VisibilityLevel: req.VisibilityLevel,
 		})
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			writeError(w, http.StatusBadRequest, normalizeRuntimeInsightsError(err))
 			return
 		}
 		writeJSON(w, http.StatusOK, mapRuntimeInsight(updated))
 	case http.MethodDelete:
 		if err := client.DeleteRuntimeInsight(ctx, apiKey, id); err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			writeError(w, http.StatusBadRequest, normalizeRuntimeInsightsError(err))
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"success": true})
@@ -1241,6 +1243,17 @@ func (s *Server) listInsights(
 ) (insightsResponse, error) {
 	result, err := client.ListRuntimeInsights(ctx, apiKey, page, pageSize, tags, diaryID)
 	if err != nil {
+		if isRuntimeInsightsNotFoundError(err) {
+			return insightsResponse{
+				Items:       []insightSummary{},
+				Total:       0,
+				Page:        page,
+				PageSize:    pageSize,
+				TotalPages:  1,
+				Unsupported: true,
+				Notice:      runtimeInsightsUnsupportedMessage(),
+			}, nil
+		}
 		return insightsResponse{}, err
 	}
 
@@ -1336,6 +1349,31 @@ func trimOptionalString(input *string) *string {
 		return nil
 	}
 	return &trimmed
+}
+
+func runtimeInsightsUnsupportedMessage() string {
+	return "runtime insights endpoint is unavailable on current server (404). Upgrade backend to version supporting /api/v1/runtime/insights."
+}
+
+func isRuntimeInsightsNotFoundError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if msg == "" {
+		return false
+	}
+	if !strings.Contains(msg, "insight") {
+		return false
+	}
+	return strings.Contains(msg, "status 404")
+}
+
+func normalizeRuntimeInsightsError(err error) error {
+	if isRuntimeInsightsNotFoundError(err) {
+		return errors.New(runtimeInsightsUnsupportedMessage())
+	}
+	return err
 }
 
 func (s *Server) loadDiaryDetail(id string) (diaryDetail, bool, error) {

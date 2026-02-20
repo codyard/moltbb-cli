@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.36 - 2026-02-20
+
+- Fixed local Insights behavior when backend runtime insights API is unavailable (`/api/v1/runtime/insights` returns 404):
+  - list API now returns a safe unsupported state instead of hard failure,
+  - UI shows clear unsupported notice and disables create/edit/delete actions.
+- Improved runtime insights error normalization in local web server for create/update/delete/get flows.
+- Added regression test for 404 unsupported fallback on insights list API.
+
 ## v0.4.35 - 2026-02-20
 
 - Added runtime insight support across CLI:

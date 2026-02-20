@@ -118,6 +118,8 @@ const MESSAGES = {
     'insight.viewReading': 'Reading',
     'insight.viewRaw': 'Raw',
     'insight.loadListFailed': 'Load insights failed: {message}',
+    'insight.unsupportedHint': 'Current backend does not support runtime insights. {message}',
+    'insight.unsupportedAction': 'Insights operation is unavailable: backend runtime insights API is not supported.',
     'insight.loadFailed': 'Load insight failed: {message}',
     'insight.saveFailed': 'Save insight failed: {message}',
     'insight.deleteFailed': 'Delete insight failed: {message}',
@@ -322,6 +324,8 @@ const MESSAGES = {
     'insight.viewReading': '阅读模式',
     'insight.viewRaw': '原文模式',
     'insight.loadListFailed': '加载心得列表失败: {message}',
+    'insight.unsupportedHint': '当前后端暂不支持 runtime insights。{message}',
+    'insight.unsupportedAction': '当前后端不支持 runtime insights API，无法执行心得操作。',
     'insight.loadFailed': '加载心得失败: {message}',
     'insight.saveFailed': '保存心得失败: {message}',
     'insight.deleteFailed': '删除心得失败: {message}',
@@ -436,6 +440,8 @@ const state = {
   insightDraftCatalogs: '',
   insightDraftVisibility: 0,
   insightsLoaded: false,
+  insightsUnsupported: false,
+  insightsNotice: '',
   syncingDiaryId: null,
   diaryHistoryItems: [],
   diaryHistoryMap: Object.create(null),
@@ -867,7 +873,7 @@ function applyInsightViewModeButton() {
   if (!button) {
     return;
   }
-  button.disabled = state.insightEditMode;
+  button.disabled = state.insightsUnsupported || state.insightEditMode;
   if (state.insightViewMode === 'raw') {
     button.textContent = t('insight.viewReading');
     button.dataset.mode = 'raw';
@@ -878,12 +884,22 @@ function applyInsightViewModeButton() {
 }
 
 function applyInsightEditButtons() {
+  const newBtn = el('btnInsightNew');
   const editBtn = el('btnInsightEdit');
   const saveBtn = el('btnInsightSave');
   const deleteBtn = el('btnInsightDelete');
-  if (!editBtn || !saveBtn || !deleteBtn) {
+  if (!newBtn || !editBtn || !saveBtn || !deleteBtn) {
     return;
   }
+  if (state.insightsUnsupported) {
+    newBtn.disabled = true;
+    editBtn.disabled = true;
+    saveBtn.disabled = true;
+    deleteBtn.disabled = true;
+    return;
+  }
+
+  newBtn.disabled = false;
   const hasInsight = !!state.currentInsightId;
   editBtn.textContent = state.insightEditMode ? t('actions.cancel') : t('actions.edit');
   editBtn.disabled = !hasInsight && !state.insightEditMode;
@@ -991,6 +1007,9 @@ function setInsightEmptyState() {
   state.insightDraftCatalogs = '';
   state.insightDraftVisibility = 0;
   state.insightDraftContent = '';
+  if (!state.insightsUnsupported) {
+    state.insightsNotice = '';
+  }
   renderInsightMeta();
   renderInsightContent();
 }
@@ -1024,6 +1043,11 @@ function filteredInsights() {
 function renderInsightList(items) {
   const container = el('insightList');
   if (!container) {
+    return;
+  }
+  if (state.insightsUnsupported) {
+    const message = (state.insightsNotice || '').trim();
+    container.innerHTML = `<div class="muted">${escapeHtml(t('insight.unsupportedHint', { message }))}</div>`;
     return;
   }
   if (!items.length) {
@@ -1072,6 +1096,10 @@ function selectInsight(id) {
 }
 
 function beginInsightCreate() {
+  if (state.insightsUnsupported) {
+    setStatusKey('insight.unsupportedAction', {}, true);
+    return;
+  }
   state.currentInsightId = null;
   state.currentInsightDetail = null;
   state.insightEditMode = true;
@@ -1088,6 +1116,10 @@ function beginInsightCreate() {
 }
 
 function toggleInsightEditMode() {
+  if (state.insightsUnsupported) {
+    setStatusKey('insight.unsupportedAction', {}, true);
+    return;
+  }
   if (!state.currentInsightId) {
     if (state.insightEditMode) {
       if (state.insights.length > 0) {
@@ -1110,8 +1142,23 @@ function toggleInsightEditMode() {
 async function loadInsights(preferredID = '') {
   const q = currentInsightQuery();
   const data = await api(`/insights?page=1&pageSize=100&q=${encodeURIComponent(q)}`);
+  state.insightsUnsupported = !!data.unsupported;
+  state.insightsNotice = String(data.notice || '').trim();
   state.insights = Array.isArray(data.items) ? data.items.map((item) => mapInsight(item)) : [];
   state.insightsLoaded = true;
+
+  if (state.insightsUnsupported) {
+    state.currentInsightId = null;
+    state.currentInsightDetail = null;
+    state.insightEditMode = false;
+    state.insightRawContent = t('insight.unsupportedHint', { message: state.insightsNotice || '' });
+    state.insightDraftContent = '';
+    renderInsightList([]);
+    renderInsightMeta();
+    renderInsightContent();
+    setStatusKey('insight.unsupportedHint', { message: state.insightsNotice || '' }, true);
+    return;
+  }
 
   let selectedID = String(preferredID || state.currentInsightId || '').trim();
   if (selectedID && !state.insights.some((item) => item.id === selectedID)) {
@@ -1136,6 +1183,10 @@ async function ensureInsightsLoaded(forceReload = false) {
 }
 
 async function saveInsight() {
+  if (state.insightsUnsupported) {
+    setStatusKey('insight.unsupportedAction', {}, true);
+    return;
+  }
   const titleValue = String(el('insightTitle')?.value || '').trim();
   const contentValue = String(el('insightEditor')?.value || state.insightDraftContent || '').trim();
   const diaryIDValue = String(el('insightDiaryId')?.value || '').trim();
@@ -1188,6 +1239,10 @@ async function saveInsight() {
 }
 
 async function deleteInsight() {
+  if (state.insightsUnsupported) {
+    setStatusKey('insight.unsupportedAction', {}, true);
+    return;
+  }
   if (!state.currentInsightId) {
     setStatusKey('insight.deleteMissing', {}, true);
     return;
