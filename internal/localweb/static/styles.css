@@ -132,8 +132,8 @@ h1 {
 }
 
 .topbar-logo {
-  width: 1em;
-  height: 1em;
+  height: clamp(1.7rem, 4vw, 3rem);
+  width: auto;
   object-fit: contain;
   flex: 0 0 auto;
 }

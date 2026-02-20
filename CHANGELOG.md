@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.32 - 2026-02-20
+
+- Fixed local web topbar logo sizing:
+  - logo height now follows the `h1` title clamp size (`clamp(1.7rem, 4vw, 3rem)`),
+  - logo width is auto-scaled by original ratio to keep visual consistency.
+
 ## v0.4.31 - 2026-02-20
 
 - Refined title logo sizing in local web header:
