@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.23 - 2026-02-20
+
+- Improved diary sync feedback in local UI:
+  - shows explicit "syncing..." status immediately after clicking sync,
+  - detail sync button now displays loading state while request is in-flight,
+  - list sync icon now animates while syncing.
+- Improved sync result clarity:
+  - success message now includes synced diary title,
+  - prevents concurrent sync actions and reports clear busy-state prompt.
+
 ## v0.4.22 - 2026-02-20
 
 - Improved local sync UX for diary detail/list:

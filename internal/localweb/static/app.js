@@ -26,6 +26,7 @@ const MESSAGES = {
     'actions.edit': 'Edit',
     'actions.cancel': 'Cancel',
     'actions.sync': 'Sync',
+    'actions.syncing': 'Syncing...',
     'actions.setDefault': 'Set Default',
     'actions.new': 'New',
     'actions.save': 'Save',
@@ -51,7 +52,9 @@ const MESSAGES = {
     'diary.defaultTag': 'DEFAULT',
     'diary.setDefaultSuccess': 'Set as default diary for {date}.',
     'diary.setDefaultFailed': 'Set default failed: {message}',
-    'diary.syncSuccess': 'Diary synced ({action}).',
+    'diary.syncInProgress': 'Syncing diary: {title}...',
+    'diary.syncBusy': 'Another sync is in progress. Please wait.',
+    'diary.syncSuccess': 'Diary synced ({action}): {title}.',
     'diary.syncFailed': 'Diary sync failed: {message}',
     'prompt.listTitle': 'Prompt Templates',
     'prompt.editorTitle': 'Prompt Editor',
@@ -156,6 +159,7 @@ const MESSAGES = {
     'actions.edit': '编辑',
     'actions.cancel': '取消',
     'actions.sync': '同步',
+    'actions.syncing': '同步中...',
     'actions.setDefault': '设为默认',
     'actions.new': '新建',
     'actions.save': '保存',
@@ -181,7 +185,9 @@ const MESSAGES = {
     'diary.defaultTag': '默认',
     'diary.setDefaultSuccess': '已设为 {date} 当天默认日记。',
     'diary.setDefaultFailed': '设为默认失败: {message}',
-    'diary.syncSuccess': '日记同步成功（{action}）。',
+    'diary.syncInProgress': '正在同步日记：{title}...',
+    'diary.syncBusy': '已有同步任务进行中，请稍候。',
+    'diary.syncSuccess': '日记同步成功（{action}）：{title}。',
     'diary.syncFailed': '日记同步失败: {message}',
     'prompt.listTitle': '提示词模板',
     'prompt.editorTitle': '提示词编辑器',
@@ -575,10 +581,15 @@ function applyDiaryEditButtons() {
   const hasDiary = !!state.currentDiaryId;
   const isDefault = !!state.currentDiaryDetail?.isDefault;
   const hasDate = !!state.currentDiaryDetail?.date;
+  const isSyncingCurrent = hasDiary && state.syncingDiaryId === state.currentDiaryId;
+  const hasSyncInFlight = !!state.syncingDiaryId;
   editBtn.disabled = !hasDiary;
   saveBtn.disabled = !state.diaryEditMode || !hasDiary;
   setDefaultBtn.disabled = !hasDiary || !hasDate || state.diaryEditMode || isDefault;
-  syncBtn.disabled = !hasDiary || state.diaryEditMode || !isDefault || state.syncingDiaryId === state.currentDiaryId;
+  syncBtn.textContent = isSyncingCurrent ? t('actions.syncing') : t('actions.sync');
+  syncBtn.classList.toggle('is-loading', isSyncingCurrent);
+  syncBtn.setAttribute('aria-busy', isSyncingCurrent ? 'true' : 'false');
+  syncBtn.disabled = !hasDiary || state.diaryEditMode || !isDefault || hasSyncInFlight;
 }
 
 function renderDiaryContent() {
@@ -832,8 +843,13 @@ function renderDiaryList(items) {
       const calendar = renderDiaryCalendar(item.date || '');
       const defaultTag = item.isDefault ? `<span class="default-tag">${escapeHtml(t('diary.defaultTag'))}</span>` : '';
       const showSync = !!item.isDefault;
+      const isSyncing = state.syncingDiaryId === item.id;
+      const hasSyncInFlight = !!state.syncingDiaryId;
+      const syncLabel = isSyncing ? t('actions.syncing') : t('actions.sync');
+      const syncDisabled = hasSyncInFlight ? 'disabled' : '';
+      const syncClass = isSyncing ? ' is-loading' : '';
       const syncButton = showSync
-        ? `<button type="button" class="mini-btn icon-btn diary-sync-btn" data-id="${escapeHtml(item.id)}" data-action="sync" title="${escapeHtml(t('actions.sync'))}" aria-label="${escapeHtml(t('actions.sync'))}">&#x21bb;</button>`
+        ? `<button type="button" class="mini-btn icon-btn diary-sync-btn${syncClass}" data-id="${escapeHtml(item.id)}" data-action="sync" title="${escapeHtml(syncLabel)}" aria-label="${escapeHtml(syncLabel)}" ${syncDisabled}><span class="sync-icon" aria-hidden="true">&#x21bb;</span></button>`
         : '';
       return `
         <article class="item diary-item ${active}" data-id="${escapeHtml(item.id)}">
@@ -954,14 +970,29 @@ async function syncDiary(id = state.currentDiaryId, refreshDetail = true) {
     setStatusKey('diary.saveMissing', {}, true);
     return;
   }
+
+  const current = state.currentDiaryId === id ? state.currentDiaryDetail : null;
+  const listItem = state.diaries.find((item) => item.id === id);
+  const diaryTitle = current?.title || current?.filename || listItem?.title || listItem?.filename || id;
+
+  if (state.syncingDiaryId) {
+    if (state.syncingDiaryId === id) {
+      setStatusKey('diary.syncInProgress', { title: diaryTitle });
+      return;
+    }
+    setStatusKey('diary.syncBusy', {}, true);
+    return;
+  }
+
   state.syncingDiaryId = id;
+  setStatusKey('diary.syncInProgress', { title: diaryTitle });
   renderDiaryList(state.diaries);
   applyDiaryEditButtons();
   try {
     const data = await api(`/diaries/${encodeURIComponent(id)}/sync`, {
       method: 'POST',
     });
-    setStatusKey('diary.syncSuccess', { action: data.action || 'SYNC' });
+    setStatusKey('diary.syncSuccess', { action: data.action || 'SYNC', title: diaryTitle });
     await loadDiaries();
     if (refreshDetail && state.currentDiaryId) {
       await loadDiaryDetail(state.currentDiaryId, false);

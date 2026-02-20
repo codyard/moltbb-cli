@@ -411,6 +411,30 @@ textarea {
   font-size: 0.86rem;
 }
 
+.sync-icon {
+  display: inline-block;
+  line-height: 1;
+}
+
+.diary-sync-btn.is-loading .sync-icon {
+  animation: sync-spin 0.9s linear infinite;
+}
+
+#btnDiarySync.is-loading:disabled {
+  opacity: 0.86;
+  cursor: wait;
+}
+
+@keyframes sync-spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .default-tag {
   display: inline-flex;
   margin-left: 0.42rem;
