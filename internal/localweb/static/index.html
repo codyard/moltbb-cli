@@ -47,6 +47,7 @@
 
       <section class="tabs panel">
         <button class="tab-btn active" data-tab="diaries" data-i18n="tabs.diaries">Diaries</button>
+        <button class="tab-btn" data-tab="calendar" data-i18n="tabs.calendar">Calendar</button>
         <button class="tab-btn" data-tab="prompts" data-i18n="tabs.prompts">Prompts</button>
         <button class="tab-btn" data-tab="generate" data-i18n="tabs.generate">Generate Packet</button>
         <button class="tab-btn" data-tab="settings" data-i18n="tabs.settings">Settings</button>
@@ -86,6 +87,56 @@
             <textarea id="diaryEditor" class="content" hidden></textarea>
           </article>
         </div>
+      </section>
+
+      <section class="tab-panel" id="tab-calendar">
+        <article class="panel card calendar-card">
+          <div class="section-head calendar-head">
+            <div class="calendar-title">
+              <h2 data-i18n="calendar.title">Diary Calendar</h2>
+              <p class="muted calendar-subtitle" data-i18n="calendar.subtitle">Track your diary writing history by day.</p>
+            </div>
+            <div class="inline-actions calendar-nav">
+              <button id="btnCalendarPrev" type="button" data-i18n="calendar.prevMonth">Prev Month</button>
+              <button id="btnCalendarToday" type="button" data-i18n="calendar.thisMonth">This Month</button>
+              <button id="btnCalendarNext" type="button" data-i18n="calendar.nextMonth">Next Month</button>
+            </div>
+          </div>
+          <div class="calendar-month-line">
+            <strong id="calendarMonthLabel">-</strong>
+            <span class="muted" id="calendarSummary"></span>
+          </div>
+          <div class="calendar-legend" id="calendarLegend">
+            <span class="legend-chip legend-empty" data-i18n="calendar.legendEmpty">No diary</span>
+            <span class="legend-chip legend-single" data-i18n="calendar.legendSingle">1 diary</span>
+            <span class="legend-chip legend-multi" data-i18n="calendar.legendMulti">2+ diaries</span>
+            <span class="legend-chip legend-default" data-i18n="calendar.legendDefault">Default diary selected</span>
+          </div>
+          <div class="calendar-layout">
+            <div class="calendar-board">
+              <div class="calendar-weekdays" id="calendarWeekdays"></div>
+              <div class="diary-history-grid" id="calendarGrid"></div>
+            </div>
+            <aside class="calendar-reader">
+              <div class="section-head calendar-reader-head">
+                <div>
+                  <h3 data-i18n="calendar.detailTitle">Diary Reader</h3>
+                  <p class="muted calendar-reader-date" id="calendarDetailDate" data-i18n="calendar.detailHint">Select a date with diary entries to read here.</p>
+                </div>
+                <div class="inline-actions">
+                  <button id="btnCalendarReaderViewMode" type="button">Raw</button>
+                  <button id="btnCalendarOpenDiaries" type="button" data-i18n="calendar.openInDiaries">Open In Diaries</button>
+                </div>
+              </div>
+              <label class="calendar-reader-picker">
+                <span data-i18n="calendar.diaryPicker">Diary</span>
+                <select id="calendarDiarySelect"></select>
+              </label>
+              <p class="muted" id="calendarDetailMeta"></p>
+              <pre id="calendarDetailContent" class="content slim">Select a date with diary entries to read here.</pre>
+            </aside>
+          </div>
+        </article>
       </section>
 
       <section class="tab-panel" id="tab-prompts">

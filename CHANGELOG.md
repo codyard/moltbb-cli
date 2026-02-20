@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v0.4.25 - 2026-02-20
+
+- Added diary calendar tab between Diaries and Prompts in local UI.
+- Added per-day diary history API for calendar rendering:
+  - new endpoint: `GET /api/diaries/history`,
+  - returns diary count and default-diary status for each date.
+- Added in-calendar diary reader:
+  - clicking a calendar day now opens diary content in the same calendar view,
+  - supports switching among multiple diaries on the same day,
+  - supports reading/raw mode toggle,
+  - keeps optional "Open In Diaries" action for full diary workspace.
+- Added regression test coverage for diary history API and manual default switch effect.
+
 ## v0.4.24 - 2026-02-20
 
 - Added detailed local sync diagnostics logging:

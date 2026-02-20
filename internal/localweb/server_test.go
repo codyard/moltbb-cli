@@ -527,6 +527,101 @@ func TestDiaryDefaultSelectionAndSetDefault(t *testing.T) {
 	}
 }
 
+func TestDiaryHistoryAPI_ReturnsPerDayStatus(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	aPath := filepath.Join(diaryDir, "2026-02-18-a.md")
+	bPath := filepath.Join(diaryDir, "2026-02-18-b.md")
+	cPath := filepath.Join(diaryDir, "2026-02-17.md")
+	if err := os.WriteFile(aPath, []byte("# A\n\n- Date: 2026-02-18"), 0o600); err != nil {
+		t.Fatalf("write diary a: %v", err)
+	}
+	if err := os.WriteFile(bPath, []byte("# B\n\n- Date: 2026-02-18"), 0o600); err != nil {
+		t.Fatalf("write diary b: %v", err)
+	}
+	if err := os.WriteFile(cPath, []byte("# C\n\n- Date: 2026-02-17"), 0o600); err != nil {
+		t.Fatalf("write diary c: %v", err)
+	}
+
+	oldTime := time.Date(2026, 2, 18, 1, 0, 0, 0, time.UTC)
+	newTime := time.Date(2026, 2, 18, 2, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(aPath, oldTime, oldTime); err != nil {
+		t.Fatalf("set diary a mtime: %v", err)
+	}
+	if err := os.Chtimes(bPath, newTime, newTime); err != nil {
+		t.Fatalf("set diary b mtime: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/diaries/history", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("history status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var history diaryHistoryResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &history); err != nil {
+		t.Fatalf("decode history response: %v", err)
+	}
+	if history.Total != 2 {
+		t.Fatalf("expected 2 diary dates, got %d", history.Total)
+	}
+	if len(history.Items) != 2 {
+		t.Fatalf("expected 2 history items, got %d", len(history.Items))
+	}
+	if history.Items[0].Date != "2026-02-18" {
+		t.Fatalf("expected first history date 2026-02-18, got %s", history.Items[0].Date)
+	}
+	if history.Items[0].DiaryCount != 2 {
+		t.Fatalf("expected 2 diaries on 2026-02-18, got %d", history.Items[0].DiaryCount)
+	}
+	if !history.Items[0].HasDefault {
+		t.Fatal("expected hasDefault=true for 2026-02-18")
+	}
+	if history.Items[0].DefaultDiaryID != "2026-02-18-b" {
+		t.Fatalf("expected default diary 2026-02-18-b, got %s", history.Items[0].DefaultDiaryID)
+	}
+	if history.Items[0].DefaultIsManual {
+		t.Fatal("expected defaultIsManual=false before manual override")
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/diaries/2026-02-18-a/set-default", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set default status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/diaries/history", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("history after set-default status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &history); err != nil {
+		t.Fatalf("decode history response after set-default: %v", err)
+	}
+	if history.Items[0].DefaultDiaryID != "2026-02-18-a" {
+		t.Fatalf("expected manual default diary 2026-02-18-a, got %s", history.Items[0].DefaultDiaryID)
+	}
+	if !history.Items[0].DefaultIsManual {
+		t.Fatal("expected defaultIsManual=true after manual set-default")
+	}
+}
+
 func TestSyncDiary_WithCloudSyncDisabled_ReturnsExplicitReason(t *testing.T) {
 	t.Parallel()
 

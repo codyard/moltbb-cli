@@ -80,6 +80,20 @@ type diariesResponse struct {
 	Limit  int            `json:"limit"`
 }
 
+type diaryHistoryItem struct {
+	Date             string `json:"date"`
+	DiaryCount       int    `json:"diaryCount"`
+	DefaultDiaryID   string `json:"defaultDiaryId,omitempty"`
+	DefaultIsManual  bool   `json:"defaultIsManual"`
+	HasDefault       bool   `json:"hasDefault"`
+	LatestModifiedAt string `json:"latestModifiedAt,omitempty"`
+}
+
+type diaryHistoryResponse struct {
+	Items []diaryHistoryItem `json:"items"`
+	Total int                `json:"total"`
+}
+
 type stateResponse struct {
 	DiaryDir      string `json:"diaryDir"`
 	DataDir       string `json:"dataDir"`
@@ -277,6 +291,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/settings/test-connection", s.handleSettingsConnectionTest)
 	s.mux.HandleFunc("/api/diaries", s.handleDiaries)
+	s.mux.HandleFunc("/api/diaries/history", s.handleDiaryHistory)
 	s.mux.HandleFunc("/api/diaries/reindex", s.handleReindex)
 	s.mux.HandleFunc("/api/diaries/", s.handleDiaryByID)
 	s.mux.HandleFunc("/api/prompts", s.handlePrompts)
@@ -458,6 +473,23 @@ func (s *Server) handleDiaries(w http.ResponseWriter, r *http.Request) {
 		Total:  total,
 		Offset: offset,
 		Limit:  limit,
+	})
+}
+
+func (s *Server) handleDiaryHistory(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	items, err := s.listDiaryHistory()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, diaryHistoryResponse{
+		Items: items,
+		Total: len(items),
 	})
 }
 
@@ -1078,6 +1110,40 @@ LIMIT ? OFFSET ?`
 	}
 
 	return items, total, nil
+}
+
+func (s *Server) listDiaryHistory() ([]diaryHistoryItem, error) {
+	rows, err := s.db.Query(`
+SELECT e.date, COUNT(1) AS diary_count, MAX(e.modified_at) AS latest_modified_at,
+       COALESCE(d.diary_id, '') AS default_diary_id,
+       COALESCE(d.is_manual, 0) AS default_is_manual
+FROM diary_entries e
+LEFT JOIN diary_day_defaults d ON d.diary_date = e.date
+WHERE e.date <> ''
+GROUP BY e.date, d.diary_id, d.is_manual
+ORDER BY e.date DESC
+`)
+	if err != nil {
+		return nil, fmt.Errorf("query diary history: %w", err)
+	}
+	defer rows.Close()
+
+	items := make([]diaryHistoryItem, 0, 128)
+	for rows.Next() {
+		var item diaryHistoryItem
+		var defaultIsManualInt int
+		if err := rows.Scan(&item.Date, &item.DiaryCount, &item.LatestModifiedAt, &item.DefaultDiaryID, &defaultIsManualInt); err != nil {
+			return nil, fmt.Errorf("scan diary history row: %w", err)
+		}
+		item.HasDefault = strings.TrimSpace(item.DefaultDiaryID) != ""
+		item.DefaultIsManual = defaultIsManualInt == 1
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read diary history rows: %w", err)
+	}
+
+	return items, nil
 }
 
 func (s *Server) getDiaryByID(id string) (diarySummary, bool, error) {

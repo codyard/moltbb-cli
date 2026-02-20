@@ -18,6 +18,7 @@ const MESSAGES = {
     'stats.prompts': 'Prompts',
     'stats.active': 'Active',
     'tabs.diaries': 'Diaries',
+    'tabs.calendar': 'Calendar',
     'tabs.prompts': 'Prompts',
     'tabs.generate': 'Generate Packet',
     'tabs.settings': 'Settings',
@@ -56,6 +57,34 @@ const MESSAGES = {
     'diary.syncBusy': 'Another sync is in progress. Please wait.',
     'diary.syncSuccess': 'Diary synced ({action}): {title}.',
     'diary.syncFailed': 'Diary sync failed: {message}',
+    'calendar.title': 'Diary Calendar',
+    'calendar.subtitle': 'Track your diary writing history by day.',
+    'calendar.prevMonth': 'Prev Month',
+    'calendar.nextMonth': 'Next Month',
+    'calendar.thisMonth': 'This Month',
+    'calendar.legendEmpty': 'No diary',
+    'calendar.legendSingle': '1 diary',
+    'calendar.legendMulti': '2+ diaries',
+    'calendar.legendDefault': 'Default diary selected',
+    'calendar.weekdayMon': 'Mon',
+    'calendar.weekdayTue': 'Tue',
+    'calendar.weekdayWed': 'Wed',
+    'calendar.weekdayThu': 'Thu',
+    'calendar.weekdayFri': 'Fri',
+    'calendar.weekdaySat': 'Sat',
+    'calendar.weekdaySun': 'Sun',
+    'calendar.statusNone': 'No diary',
+    'calendar.statusSingle': '1 diary',
+    'calendar.statusMulti': '{count} diaries',
+    'calendar.summary': '{days} active days · {entries} diaries',
+    'calendar.summaryEmpty': 'No diary entries in this month.',
+    'calendar.detailTitle': 'Diary Reader',
+    'calendar.detailHint': 'Select a date with diary entries to read here.',
+    'calendar.detailEmpty': 'No diary entries found for this date.',
+    'calendar.detailDate': 'Selected date: {date}',
+    'calendar.diaryPicker': 'Diary',
+    'calendar.openInDiaries': 'Open In Diaries',
+    'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
     'prompt.listTitle': 'Prompt Templates',
     'prompt.editorTitle': 'Prompt Editor',
     'prompt.name': 'Name',
@@ -151,6 +180,7 @@ const MESSAGES = {
     'stats.prompts': '模板',
     'stats.active': '当前激活',
     'tabs.diaries': '日记',
+    'tabs.calendar': '日历',
     'tabs.prompts': '提示词',
     'tabs.generate': '生成数据包',
     'tabs.settings': '设置',
@@ -189,6 +219,34 @@ const MESSAGES = {
     'diary.syncBusy': '已有同步任务进行中，请稍候。',
     'diary.syncSuccess': '日记同步成功（{action}）：{title}。',
     'diary.syncFailed': '日记同步失败: {message}',
+    'calendar.title': '日记日历',
+    'calendar.subtitle': '按日历视图查看每天的日记撰写状态。',
+    'calendar.prevMonth': '上个月',
+    'calendar.nextMonth': '下个月',
+    'calendar.thisMonth': '本月',
+    'calendar.legendEmpty': '未写日记',
+    'calendar.legendSingle': '1 篇',
+    'calendar.legendMulti': '2 篇及以上',
+    'calendar.legendDefault': '已设置默认日记',
+    'calendar.weekdayMon': '一',
+    'calendar.weekdayTue': '二',
+    'calendar.weekdayWed': '三',
+    'calendar.weekdayThu': '四',
+    'calendar.weekdayFri': '五',
+    'calendar.weekdaySat': '六',
+    'calendar.weekdaySun': '日',
+    'calendar.statusNone': '未写',
+    'calendar.statusSingle': '1 篇',
+    'calendar.statusMulti': '{count} 篇',
+    'calendar.summary': '活跃 {days} 天 · 共 {entries} 篇',
+    'calendar.summaryEmpty': '本月暂无日记记录。',
+    'calendar.detailTitle': '日记阅读',
+    'calendar.detailHint': '点击左侧有日记的日期，即可在这里直接阅读。',
+    'calendar.detailEmpty': '该日期暂无可读日记。',
+    'calendar.detailDate': '已选日期：{date}',
+    'calendar.diaryPicker': '日记文件',
+    'calendar.openInDiaries': '在日记页打开',
+    'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
     'prompt.listTitle': '提示词模板',
     'prompt.editorTitle': '提示词编辑器',
     'prompt.name': '名称',
@@ -283,6 +341,14 @@ const state = {
   diaryEditMode: false,
   diaryDraftContent: '',
   syncingDiaryId: null,
+  diaryHistoryItems: [],
+  diaryHistoryMap: Object.create(null),
+  calendarMonth: '',
+  calendarSelectedDate: '',
+  calendarDateDiaries: [],
+  calendarSelectedDiaryId: '',
+  calendarDiaryDetail: null,
+  calendarDiaryViewMode: 'markdown',
   currentDiaryDetail: null,
   currentPromptDetail: null,
   settings: null,
@@ -659,6 +725,10 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach((panel) => {
     panel.classList.toggle('active', panel.id === `tab-${name}`);
   });
+  if (name === 'calendar') {
+    renderDiaryHistoryCalendar();
+    renderCalendarDiaryDetail();
+  }
 }
 
 async function loadState() {
@@ -834,6 +904,355 @@ function renderDiaryCalendar(dateRaw) {
   `;
 }
 
+function utcTodayDate() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function utcCurrentMonth() {
+  return utcTodayDate().slice(0, 7);
+}
+
+function normalizeCalendarMonth(raw) {
+  const match = String(raw || '').match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return '';
+  }
+  const month = Number.parseInt(match[2], 10);
+  if (month < 1 || month > 12) {
+    return '';
+  }
+  return `${match[1]}-${String(month).padStart(2, '0')}`;
+}
+
+function shiftCalendarMonth(rawMonth, delta) {
+  const normalized = normalizeCalendarMonth(rawMonth) || utcCurrentMonth();
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return utcCurrentMonth();
+  }
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const dt = new Date(Date.UTC(year, month - 1 + delta, 1));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatCalendarMonthLabel(rawMonth) {
+  const normalized = normalizeCalendarMonth(rawMonth) || utcCurrentMonth();
+  const match = normalized.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return normalized;
+  }
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const dt = new Date(Date.UTC(year, month - 1, 1));
+  const localeTag = state.locale === 'zh-Hans' ? 'zh-CN' : 'en-US';
+  try {
+    return new Intl.DateTimeFormat(localeTag, {
+      year: 'numeric',
+      month: 'long',
+      timeZone: 'UTC',
+    }).format(dt);
+  } catch {
+    return normalized;
+  }
+}
+
+function rebuildDiaryHistoryMap() {
+  const map = Object.create(null);
+  for (const item of state.diaryHistoryItems) {
+    const date = String(item?.date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      continue;
+    }
+    map[date] = {
+      diaryCount: Number.isFinite(item.diaryCount) ? item.diaryCount : 0,
+      hasDefault: !!item.hasDefault,
+      defaultDiaryId: item.defaultDiaryId || '',
+      latestModifiedAt: item.latestModifiedAt || '',
+    };
+  }
+  state.diaryHistoryMap = map;
+}
+
+async function loadDiaryHistory() {
+  const data = await api('/diaries/history');
+  state.diaryHistoryItems = Array.isArray(data.items) ? data.items : [];
+  rebuildDiaryHistoryMap();
+  if (!state.calendarMonth) {
+    state.calendarMonth = utcCurrentMonth();
+  }
+  if (state.calendarSelectedDate) {
+    await selectCalendarDate(state.calendarSelectedDate, state.calendarSelectedDiaryId);
+    return;
+  }
+  renderDiaryHistoryCalendar();
+  renderCalendarDiaryDetail();
+}
+
+function calendarWeekdayLabels() {
+  return [
+    t('calendar.weekdayMon'),
+    t('calendar.weekdayTue'),
+    t('calendar.weekdayWed'),
+    t('calendar.weekdayThu'),
+    t('calendar.weekdayFri'),
+    t('calendar.weekdaySat'),
+    t('calendar.weekdaySun'),
+  ];
+}
+
+function renderDiaryHistoryCalendar() {
+  const monthLabel = el('calendarMonthLabel');
+  const summary = el('calendarSummary');
+  const weekdayRow = el('calendarWeekdays');
+  const grid = el('calendarGrid');
+  if (!monthLabel || !summary || !weekdayRow || !grid) {
+    return;
+  }
+
+  if (!state.calendarMonth) {
+    state.calendarMonth = utcCurrentMonth();
+  }
+  const normalizedMonth = normalizeCalendarMonth(state.calendarMonth) || utcCurrentMonth();
+  state.calendarMonth = normalizedMonth;
+
+  monthLabel.textContent = formatCalendarMonthLabel(normalizedMonth);
+  weekdayRow.innerHTML = calendarWeekdayLabels()
+    .map((label) => `<span>${escapeHtml(label)}</span>`)
+    .join('');
+
+  const match = normalizedMonth.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    summary.textContent = t('calendar.summaryEmpty');
+    grid.innerHTML = '';
+    return;
+  }
+
+  const year = Number.parseInt(match[1], 10);
+  const month = Number.parseInt(match[2], 10);
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const leading = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+  const today = utcTodayDate();
+
+  let activeDays = 0;
+  let totalEntries = 0;
+  const cells = [];
+
+  for (let i = 0; i < leading; i += 1) {
+    cells.push('<div class="calendar-day-cell is-placeholder" aria-hidden="true"></div>');
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const info = state.diaryHistoryMap[date];
+    const count = Number.isFinite(info?.diaryCount) ? info.diaryCount : 0;
+    const hasDefault = !!info?.hasDefault;
+    const defaultDiaryId = info?.defaultDiaryId || '';
+    const isToday = date === today;
+    if (count > 0) {
+      activeDays += 1;
+      totalEntries += count;
+    }
+
+    let status = t('calendar.statusNone');
+    let statusClass = 'is-empty';
+    if (count === 1) {
+      status = t('calendar.statusSingle');
+      statusClass = 'is-single';
+    } else if (count > 1) {
+      status = t('calendar.statusMulti', { count });
+      statusClass = 'is-multi';
+    }
+
+    const defaultMarker = hasDefault ? '<span class="calendar-default-dot" aria-hidden="true"></span>' : '';
+    const todayClass = isToday ? ' is-today' : '';
+    const selectedClass = date === state.calendarSelectedDate ? ' is-selected' : '';
+    const defaultClass = hasDefault ? ' is-default' : '';
+    const content = `
+      <span class="calendar-day-num">${day}</span>
+      <span class="calendar-day-status">${escapeHtml(status)}</span>
+      ${defaultMarker}
+    `;
+
+    if (count > 0) {
+      const title = `${date} · ${status}`;
+      cells.push(
+        `<button type="button" class="calendar-day-cell ${statusClass}${todayClass}${selectedClass}${defaultClass}" data-date="${date}" data-default-id="${escapeHtml(defaultDiaryId)}" title="${escapeHtml(title)}">${content}</button>`,
+      );
+    } else {
+      cells.push(`<div class="calendar-day-cell ${statusClass}${todayClass}${selectedClass}${defaultClass}">${content}</div>`);
+    }
+  }
+
+  while (cells.length % 7 !== 0) {
+    cells.push('<div class="calendar-day-cell is-placeholder" aria-hidden="true"></div>');
+  }
+
+  summary.textContent = activeDays > 0
+    ? t('calendar.summary', { days: activeDays, entries: totalEntries })
+    : t('calendar.summaryEmpty');
+  grid.innerHTML = cells.join('');
+
+  grid.querySelectorAll('button.calendar-day-cell[data-date]').forEach((node) => {
+    node.addEventListener('click', () => {
+      selectCalendarDate(node.dataset.date || '', node.dataset.defaultId || '')
+        .catch((err) => setStatusKey('diary.loadListFailed', { message: err.message }, true));
+    });
+  });
+}
+
+function buildCalendarDiaryOptionLabel(item) {
+  const title = String(item?.title || item?.filename || item?.id || '').trim();
+  if (!item?.isDefault) {
+    return title;
+  }
+  return `${title} (${t('diary.defaultTag')})`;
+}
+
+function applyCalendarDiaryViewModeButton() {
+  const button = el('btnCalendarReaderViewMode');
+  if (!button) {
+    return;
+  }
+  const hasDiary = !!state.calendarDiaryDetail;
+  button.disabled = !hasDiary;
+  if (state.calendarDiaryViewMode === 'raw') {
+    button.textContent = t('diary.viewReading');
+    button.dataset.mode = 'raw';
+  } else {
+    button.textContent = t('diary.viewRaw');
+    button.dataset.mode = 'reading';
+  }
+}
+
+function renderCalendarDiaryDetail() {
+  const dateLabel = el('calendarDetailDate');
+  const selector = el('calendarDiarySelect');
+  const meta = el('calendarDetailMeta');
+  const content = el('calendarDetailContent');
+  const openBtn = el('btnCalendarOpenDiaries');
+  if (!dateLabel || !selector || !meta || !content || !openBtn) {
+    return;
+  }
+
+  const selectedDate = String(state.calendarSelectedDate || '').trim();
+  if (selectedDate) {
+    dateLabel.textContent = t('calendar.detailDate', { date: selectedDate });
+  } else {
+    dateLabel.textContent = t('calendar.detailHint');
+  }
+
+  const items = Array.isArray(state.calendarDateDiaries) ? state.calendarDateDiaries : [];
+  if (!items.length) {
+    selector.innerHTML = '';
+    selector.disabled = true;
+    meta.textContent = '';
+    content.classList.remove('markdown-view');
+    content.textContent = selectedDate ? t('calendar.detailEmpty') : t('calendar.detailHint');
+    openBtn.disabled = true;
+    applyCalendarDiaryViewModeButton();
+    return;
+  }
+
+  selector.disabled = false;
+  selector.innerHTML = items
+    .map((item) => {
+      const selected = item.id === state.calendarSelectedDiaryId ? 'selected' : '';
+      return `<option value="${escapeHtml(item.id)}" ${selected}>${escapeHtml(buildCalendarDiaryOptionLabel(item))}</option>`;
+    })
+    .join('');
+
+  const detail = state.calendarDiaryDetail;
+  if (!detail) {
+    meta.textContent = '';
+    content.classList.remove('markdown-view');
+    content.textContent = t('status.loading');
+    openBtn.disabled = true;
+    applyCalendarDiaryViewModeButton();
+    return;
+  }
+
+  meta.textContent = t('calendar.metaFormat', {
+    date: detail.date || t('common.na'),
+    modifiedAt: detail.modifiedAt || '',
+    filename: detail.filename || '',
+  });
+  const raw = detail.content || '';
+  if (state.calendarDiaryViewMode === 'markdown') {
+    content.classList.add('markdown-view');
+    content.innerHTML = markdownToHtml(raw);
+  } else {
+    content.classList.remove('markdown-view');
+    content.textContent = raw;
+  }
+  openBtn.disabled = false;
+  applyCalendarDiaryViewModeButton();
+}
+
+async function loadCalendarDiaryDetail(id) {
+  const trimmedID = String(id || '').trim();
+  if (!trimmedID) {
+    state.calendarSelectedDiaryId = '';
+    state.calendarDiaryDetail = null;
+    renderCalendarDiaryDetail();
+    return;
+  }
+  const detail = await api(`/diaries/${encodeURIComponent(trimmedID)}`);
+  state.calendarSelectedDiaryId = detail.id;
+  state.calendarDiaryDetail = detail;
+  renderCalendarDiaryDetail();
+}
+
+async function selectCalendarDate(date, defaultDiaryId = '') {
+  const trimmedDate = String(date || '').trim();
+  if (!trimmedDate) {
+    return;
+  }
+
+  state.calendarSelectedDate = trimmedDate;
+  const data = await api(`/diaries?limit=400&q=${encodeURIComponent(trimmedDate)}`);
+  const items = (Array.isArray(data.items) ? data.items : []).filter((item) => item.date === trimmedDate);
+  state.calendarDateDiaries = items;
+  renderDiaryHistoryCalendar();
+
+  if (!items.length) {
+    state.calendarSelectedDiaryId = '';
+    state.calendarDiaryDetail = null;
+    renderCalendarDiaryDetail();
+    return;
+  }
+
+  let targetID = '';
+  if (defaultDiaryId && items.some((item) => item.id === defaultDiaryId)) {
+    targetID = defaultDiaryId;
+  } else if (state.calendarSelectedDiaryId && items.some((item) => item.id === state.calendarSelectedDiaryId)) {
+    targetID = state.calendarSelectedDiaryId;
+  } else {
+    const defaultItem = items.find((item) => item.isDefault);
+    targetID = defaultItem?.id || items[0].id;
+  }
+  state.calendarSelectedDiaryId = targetID;
+  state.calendarDiaryDetail = null;
+  renderCalendarDiaryDetail();
+  await loadCalendarDiaryDetail(targetID);
+}
+
+async function openDiaryDateFromCalendar(date, diaryID = '') {
+  const trimmedDate = String(date || '').trim();
+  if (!trimmedDate) {
+    return;
+  }
+  const search = el('diarySearch');
+  if (search) {
+    search.value = trimmedDate;
+  }
+  switchTab('diaries');
+  await loadDiaries();
+  if (diaryID && state.diaries.some((item) => item.id === diaryID)) {
+    await loadDiaryDetail(diaryID);
+  }
+}
+
 function renderDiaryList(items) {
   const container = el('diaryList');
   if (!items.length) {
@@ -952,6 +1371,7 @@ async function saveDiaryContent() {
   state.diaryDraftContent = state.diaryRawContent;
   state.diaryEditMode = false;
   await loadDiaries();
+  await loadDiaryHistory();
   setStatusKey('diary.saveSuccess');
 }
 
@@ -965,6 +1385,7 @@ async function setDiaryDefault() {
   });
   state.currentDiaryDetail = data;
   await loadDiaries();
+  await loadDiaryHistory();
   setStatusKey('diary.setDefaultSuccess', { date: data.date || '' });
 }
 
@@ -1195,6 +1616,7 @@ async function reindex() {
   const data = await api('/diaries/reindex', { method: 'POST' });
   setStatusKey('reindex.done', { count: data.diaryCount });
   await loadDiaries();
+  await loadDiaryHistory();
   await loadState();
 }
 
@@ -1296,6 +1718,8 @@ function applyStaticI18n() {
 
 function refreshLocalizedDynamicText() {
   renderDiaryList(state.diaries);
+  renderDiaryHistoryCalendar();
+  renderCalendarDiaryDetail();
   if (state.currentDiaryDetail) {
     renderDiaryMeta();
     renderDiaryContent();
@@ -1379,6 +1803,52 @@ function bindEvents() {
     await bootstrap();
   });
 
+  const btnCalendarPrev = el('btnCalendarPrev');
+  const btnCalendarToday = el('btnCalendarToday');
+  const btnCalendarNext = el('btnCalendarNext');
+  if (btnCalendarPrev) {
+    btnCalendarPrev.addEventListener('click', () => {
+      state.calendarMonth = shiftCalendarMonth(state.calendarMonth, -1);
+      renderDiaryHistoryCalendar();
+    });
+  }
+  if (btnCalendarToday) {
+    btnCalendarToday.addEventListener('click', () => {
+      state.calendarMonth = utcCurrentMonth();
+      renderDiaryHistoryCalendar();
+    });
+  }
+  if (btnCalendarNext) {
+    btnCalendarNext.addEventListener('click', () => {
+      state.calendarMonth = shiftCalendarMonth(state.calendarMonth, 1);
+      renderDiaryHistoryCalendar();
+    });
+  }
+
+  const calendarDiarySelect = el('calendarDiarySelect');
+  if (calendarDiarySelect) {
+    calendarDiarySelect.addEventListener('change', (event) => {
+      loadCalendarDiaryDetail(event.target.value)
+        .catch((err) => setStatusKey('diary.loadFailed', { message: err.message }, true));
+    });
+  }
+
+  const btnCalendarReaderViewMode = el('btnCalendarReaderViewMode');
+  if (btnCalendarReaderViewMode) {
+    btnCalendarReaderViewMode.addEventListener('click', () => {
+      state.calendarDiaryViewMode = state.calendarDiaryViewMode === 'raw' ? 'markdown' : 'raw';
+      renderCalendarDiaryDetail();
+    });
+  }
+
+  const btnCalendarOpenDiaries = el('btnCalendarOpenDiaries');
+  if (btnCalendarOpenDiaries) {
+    btnCalendarOpenDiaries.addEventListener('click', () => {
+      openDiaryDateFromCalendar(state.calendarSelectedDate, state.calendarSelectedDiaryId)
+        .catch((err) => setStatusKey('diary.loadListFailed', { message: err.message }, true));
+    });
+  }
+
   el('diarySearch').addEventListener('input', () => {
     clearTimeout(bindEvents.diaryTimer);
     bindEvents.diaryTimer = setTimeout(() => {
@@ -1452,6 +1922,7 @@ async function bootstrap() {
   setStatusKey('status.loading');
   await loadState();
   await loadDiaries();
+  await loadDiaryHistory();
   await loadPrompts();
   await loadSettings();
   setStatusKey('status.ready');
@@ -1470,6 +1941,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   setDiaryEmptyState();
   el('generateResult').textContent = t('generate.noPacket');
   applyDiaryViewModeButton();
+  applyCalendarDiaryViewModeButton();
+  renderCalendarDiaryDetail();
   try {
     await bootstrap();
   } catch (err) {
