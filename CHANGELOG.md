@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## v0.4.24 - 2026-02-20
+
+- Added detailed local sync diagnostics logging:
+  - each diary sync attempt now writes structured JSONL records to `sync.log`,
+  - logs include sync stage, blocking reason, diary metadata, cloud-sync/API-key state, and API base URL.
+- Improved settings save workflow:
+  - when cloud sync is enabled and settings are saved, local UI now auto-runs connection test.
+- Refined settings onboarding status card copy:
+  - removed redundant "connection details are shown on the right" hint text.
+- Added regression coverage for sync diagnostics log persistence:
+  - validates blocked sync cases (cloud sync disabled / API key missing) are recorded with explicit stages.
+
 ## v0.4.23 - 2026-02-20
 
 - Improved diary sync feedback in local UI:

@@ -32,6 +32,7 @@ var diaryDateRe = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}\b`)
 var diaryLabelDateRe = regexp.MustCompile(`(?im)^\s*(?:[-*]\s*)?(?:date|日期)\s*:\s*(\d{4}-\d{2}-\d{2})\s*$`)
 
 const settingKeyCloudSyncEnabled = "cloud_sync_enabled"
+const syncDiagnosticsLogFileName = "sync.log"
 
 type Options struct {
 	DiaryDir   string
@@ -149,6 +150,43 @@ type diarySyncResponse struct {
 type dayDefaultRecord struct {
 	DiaryID  string
 	IsManual bool
+}
+
+type syncDiagContext struct {
+	DiaryID          string
+	DiaryDate        string
+	DiaryTitle       string
+	DiaryFilename    string
+	DiaryRelPath     string
+	DiaryPath        string
+	IsDefault        *bool
+	CloudSyncEnabled *bool
+	APIKeyConfigured *bool
+	APIKeySource     string
+	APIBaseURL       string
+}
+
+type syncLogEntry struct {
+	Timestamp        string `json:"timestamp"`
+	Level            string `json:"level"`
+	Event            string `json:"event"`
+	Stage            string `json:"stage,omitempty"`
+	DiaryID          string `json:"diaryId,omitempty"`
+	DiaryDate        string `json:"diaryDate,omitempty"`
+	DiaryTitle       string `json:"diaryTitle,omitempty"`
+	DiaryFilename    string `json:"diaryFilename,omitempty"`
+	DiaryRelPath     string `json:"diaryRelPath,omitempty"`
+	DiaryPath        string `json:"diaryPath,omitempty"`
+	IsDefault        *bool  `json:"isDefault,omitempty"`
+	CloudSyncEnabled *bool  `json:"cloudSyncEnabled,omitempty"`
+	APIKeyConfigured *bool  `json:"apiKeyConfigured,omitempty"`
+	APIKeySource     string `json:"apiKeySource,omitempty"`
+	APIBaseURL       string `json:"apiBaseUrl,omitempty"`
+	Action           string `json:"action,omitempty"`
+	StatusCode       int    `json:"statusCode,omitempty"`
+	RemoteDiaryID    string `json:"remoteDiaryId,omitempty"`
+	Message          string `json:"message,omitempty"`
+	Error            string `json:"error,omitempty"`
 }
 
 type promptCreateRequest struct {
@@ -1207,45 +1245,73 @@ ON CONFLICT(diary_date) DO UPDATE SET diary_id = excluded.diary_id, is_manual = 
 }
 
 func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
+	diag := s.newSyncDiagContext(id)
+
 	detail, found, err := s.loadDiaryDetail(id)
 	if err != nil {
+		s.logSyncFailure("load_diary_detail", diag, err)
 		return diarySyncResponse{}, false, err
 	}
 	if !found {
 		return diarySyncResponse{}, false, nil
 	}
+	diag.DiaryDate = detail.Date
+	diag.DiaryTitle = detail.Title
+	diag.DiaryFilename = detail.Filename
+	diag.DiaryRelPath = detail.RelPath
+	diag.DiaryPath = filepath.Join(s.diaryDir, detail.RelPath)
+	isDefault := detail.IsDefault
+	diag.IsDefault = &isDefault
+
 	if strings.TrimSpace(detail.Date) == "" {
-		return diarySyncResponse{}, true, errors.New("diary date is required for sync")
+		err = errors.New("diary date is required for sync")
+		s.logSyncBlocked("validate_diary_date", diag, err)
+		return diarySyncResponse{}, true, err
 	}
 	if !detail.IsDefault {
-		return diarySyncResponse{}, true, errors.New("sync blocked: this diary is not the day default, use 'Set Default' first")
+		err = errors.New("sync blocked: this diary is not the day default, use 'Set Default' first")
+		s.logSyncBlocked("validate_day_default", diag, err)
+		return diarySyncResponse{}, true, err
 	}
 
 	cloudSyncEnabled, err := s.getCloudSyncEnabled()
 	if err != nil {
+		s.logSyncFailure("read_cloud_sync_setting", diag, err)
 		return diarySyncResponse{}, true, err
 	}
+	diag.CloudSyncEnabled = &cloudSyncEnabled
 	if !cloudSyncEnabled {
-		return diarySyncResponse{}, true, errors.New("sync blocked: cloud sync is disabled in Settings")
+		err = errors.New("sync blocked: cloud sync is disabled in Settings")
+		s.logSyncBlocked("precheck_cloud_sync", diag, err)
+		return diarySyncResponse{}, true, err
 	}
 
 	apiKeyConfigured, _, keySource, err := s.resolveAPIKeyState()
 	if err != nil {
+		s.logSyncFailure("resolve_api_key_state", diag, err)
 		return diarySyncResponse{}, true, err
 	}
+	diag.APIKeyConfigured = &apiKeyConfigured
+	diag.APIKeySource = keySource
 	if !apiKeyConfigured {
-		return diarySyncResponse{}, true, errors.New("sync blocked: API key is not configured. Set it in Settings or run `moltbb login --apikey <key>`")
+		err = errors.New("sync blocked: API key is not configured. Set it in Settings or run `moltbb login --apikey <key>`")
+		s.logSyncBlocked("precheck_api_key", diag, err)
+		return diarySyncResponse{}, true, err
 	}
 
 	filePath := filepath.Join(s.diaryDir, detail.RelPath)
+	diag.DiaryPath = filePath
 	payload, err := diary.BuildRuntimeUpsertPayload(filePath, detail.Date, 0, time.Now().UTC())
 	if err != nil {
+		s.logSyncFailure("build_runtime_payload", diag, err)
 		return diarySyncResponse{}, true, err
 	}
 
 	apiKey, err := auth.ResolveAPIKey()
 	if err != nil {
-		return diarySyncResponse{}, true, fmt.Errorf("resolve api key from %s: %w", keySource, err)
+		err = fmt.Errorf("resolve api key from %s: %w", keySource, err)
+		s.logSyncFailure("resolve_api_key", diag, err)
+		return diarySyncResponse{}, true, err
 	}
 
 	cfg := config.Default()
@@ -1253,12 +1319,14 @@ func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
 	if base == "" {
 		base = config.DefaultAPIBaseURL
 	}
+	diag.APIBaseURL = base
 	cfg.APIBaseURL = base
 	if strings.HasPrefix(base, "http://") {
 		cfg.AllowInsecureHTTP = true
 	}
 	client, err := api.NewClient(cfg)
 	if err != nil {
+		s.logSyncFailure("create_api_client", diag, err)
 		return diarySyncResponse{}, true, err
 	}
 
@@ -1271,8 +1339,11 @@ func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
 		DiaryDate:      payload.DiaryDate,
 	})
 	if err != nil {
+		s.logSyncFailure("upsert_runtime_diary", diag, err)
 		return diarySyncResponse{}, true, err
 	}
+
+	s.logSyncSuccess("upsert_runtime_diary", diag, result)
 
 	return diarySyncResponse{
 		Success:    true,
@@ -1280,6 +1351,110 @@ func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
 		Action:     result.Action,
 		StatusCode: result.StatusCode,
 	}, true, nil
+}
+
+func (s *Server) newSyncDiagContext(id string) syncDiagContext {
+	baseURL := strings.TrimSpace(s.apiBaseURL)
+	if baseURL == "" {
+		baseURL = config.DefaultAPIBaseURL
+	}
+	return syncDiagContext{
+		DiaryID:    strings.TrimSpace(id),
+		APIBaseURL: baseURL,
+	}
+}
+
+func (s *Server) logSyncBlocked(stage string, diag syncDiagContext, err error) {
+	s.appendSyncLog(syncLogEntry{
+		Level:            "warn",
+		Event:            "diary_sync_blocked",
+		Stage:            stage,
+		DiaryID:          diag.DiaryID,
+		DiaryDate:        diag.DiaryDate,
+		DiaryTitle:       diag.DiaryTitle,
+		DiaryFilename:    diag.DiaryFilename,
+		DiaryRelPath:     diag.DiaryRelPath,
+		DiaryPath:        diag.DiaryPath,
+		IsDefault:        diag.IsDefault,
+		CloudSyncEnabled: diag.CloudSyncEnabled,
+		APIKeyConfigured: diag.APIKeyConfigured,
+		APIKeySource:     diag.APIKeySource,
+		APIBaseURL:       diag.APIBaseURL,
+		Message:          "sync blocked by local precondition",
+		Error:            err.Error(),
+	})
+}
+
+func (s *Server) logSyncFailure(stage string, diag syncDiagContext, err error) {
+	s.appendSyncLog(syncLogEntry{
+		Level:            "error",
+		Event:            "diary_sync_failed",
+		Stage:            stage,
+		DiaryID:          diag.DiaryID,
+		DiaryDate:        diag.DiaryDate,
+		DiaryTitle:       diag.DiaryTitle,
+		DiaryFilename:    diag.DiaryFilename,
+		DiaryRelPath:     diag.DiaryRelPath,
+		DiaryPath:        diag.DiaryPath,
+		IsDefault:        diag.IsDefault,
+		CloudSyncEnabled: diag.CloudSyncEnabled,
+		APIKeyConfigured: diag.APIKeyConfigured,
+		APIKeySource:     diag.APIKeySource,
+		APIBaseURL:       diag.APIBaseURL,
+		Message:          "sync request failed",
+		Error:            err.Error(),
+	})
+}
+
+func (s *Server) logSyncSuccess(stage string, diag syncDiagContext, result api.RuntimeDiaryUpsertResult) {
+	s.appendSyncLog(syncLogEntry{
+		Level:            "info",
+		Event:            "diary_sync_succeeded",
+		Stage:            stage,
+		DiaryID:          diag.DiaryID,
+		DiaryDate:        diag.DiaryDate,
+		DiaryTitle:       diag.DiaryTitle,
+		DiaryFilename:    diag.DiaryFilename,
+		DiaryRelPath:     diag.DiaryRelPath,
+		DiaryPath:        diag.DiaryPath,
+		IsDefault:        diag.IsDefault,
+		CloudSyncEnabled: diag.CloudSyncEnabled,
+		APIKeyConfigured: diag.APIKeyConfigured,
+		APIKeySource:     diag.APIKeySource,
+		APIBaseURL:       diag.APIBaseURL,
+		Action:           result.Action,
+		StatusCode:       result.StatusCode,
+		RemoteDiaryID:    result.DiaryID,
+		Message:          "sync request completed",
+	})
+}
+
+func (s *Server) appendSyncLog(entry syncLogEntry) {
+	entry.Timestamp = time.Now().UTC().Format(time.RFC3339Nano)
+	if strings.TrimSpace(entry.Level) == "" {
+		entry.Level = "info"
+	}
+	if strings.TrimSpace(entry.Event) == "" {
+		entry.Event = "diary_sync_event"
+	}
+
+	data, err := json.Marshal(entry)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: encode sync diagnostics log failed: %v\n", err)
+		return
+	}
+
+	logPath := filepath.Join(s.dataDir, syncDiagnosticsLogFileName)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: open sync diagnostics log failed: %v\n", err)
+		return
+	}
+	defer f.Close()
+
+	if _, err := f.Write(append(data, '\n')); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: write sync diagnostics log failed: %v\n", err)
+	}
 }
 
 func (s *Server) reconcileDayDefaults() error {

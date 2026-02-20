@@ -555,6 +555,38 @@ func TestSyncDiary_WithCloudSyncDisabled_ReturnsExplicitReason(t *testing.T) {
 	if !strings.Contains(rec.Body.String(), "cloud sync is disabled") {
 		t.Fatalf("expected cloud sync disabled reason, got body=%s", rec.Body.String())
 	}
+
+	logData, err := os.ReadFile(filepath.Join(dataDir, syncDiagnosticsLogFileName))
+	if err != nil {
+		t.Fatalf("read sync diagnostics log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[len(lines)-1]) == "" {
+		t.Fatalf("expected sync diagnostics log line, got=%q", string(logData))
+	}
+
+	var entry map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &entry); err != nil {
+		t.Fatalf("decode sync diagnostics log line: %v", err)
+	}
+	if got, ok := entry["event"].(string); !ok || got != "diary_sync_blocked" {
+		t.Fatalf("expected blocked event, got=%v", entry["event"])
+	}
+	if got, ok := entry["stage"].(string); !ok || got != "precheck_cloud_sync" {
+		t.Fatalf("expected precheck_cloud_sync stage, got=%v", entry["stage"])
+	}
+	if got, ok := entry["diaryId"].(string); !ok || got != "2026-02-20" {
+		t.Fatalf("expected diaryId=2026-02-20, got=%v", entry["diaryId"])
+	}
+	if got, ok := entry["cloudSyncEnabled"].(bool); !ok || got {
+		t.Fatalf("expected cloudSyncEnabled=false, got=%v", entry["cloudSyncEnabled"])
+	}
+	if got, ok := entry["error"].(string); !ok || !strings.Contains(got, "cloud sync is disabled") {
+		t.Fatalf("expected cloud sync error in log, got=%v", entry["error"])
+	}
+	if got, ok := entry["timestamp"].(string); !ok || strings.TrimSpace(got) == "" {
+		t.Fatalf("expected timestamp in sync diagnostics log, got=%v", entry["timestamp"])
+	}
 }
 
 func TestSyncDiary_WithCloudSyncEnabledAndNoAPIKey_ReturnsExplicitReason(t *testing.T) {
@@ -592,5 +624,34 @@ func TestSyncDiary_WithCloudSyncEnabledAndNoAPIKey_ReturnsExplicitReason(t *test
 	}
 	if !strings.Contains(rec.Body.String(), "API key is not configured") {
 		t.Fatalf("expected api key not configured reason, got body=%s", rec.Body.String())
+	}
+
+	logData, err := os.ReadFile(filepath.Join(dataDir, syncDiagnosticsLogFileName))
+	if err != nil {
+		t.Fatalf("read sync diagnostics log: %v", err)
+	}
+	lines := strings.Split(strings.TrimSpace(string(logData)), "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[len(lines)-1]) == "" {
+		t.Fatalf("expected sync diagnostics log line, got=%q", string(logData))
+	}
+
+	var entry map[string]any
+	if err := json.Unmarshal([]byte(lines[len(lines)-1]), &entry); err != nil {
+		t.Fatalf("decode sync diagnostics log line: %v", err)
+	}
+	if got, ok := entry["event"].(string); !ok || got != "diary_sync_blocked" {
+		t.Fatalf("expected blocked event, got=%v", entry["event"])
+	}
+	if got, ok := entry["stage"].(string); !ok || got != "precheck_api_key" {
+		t.Fatalf("expected precheck_api_key stage, got=%v", entry["stage"])
+	}
+	if got, ok := entry["cloudSyncEnabled"].(bool); !ok || !got {
+		t.Fatalf("expected cloudSyncEnabled=true, got=%v", entry["cloudSyncEnabled"])
+	}
+	if got, ok := entry["apiKeyConfigured"].(bool); !ok || got {
+		t.Fatalf("expected apiKeyConfigured=false, got=%v", entry["apiKeyConfigured"])
+	}
+	if got, ok := entry["error"].(string); !ok || !strings.Contains(got, "API key is not configured") {
+		t.Fatalf("expected api key error in log, got=%v", entry["error"])
 	}
 }
