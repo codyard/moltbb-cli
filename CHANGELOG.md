@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.34 - 2026-02-20
+
+- Refined local web typography scale:
+  - unified size tier baseline as `small=16px`, `medium=18px`, `large=22px`,
+  - standardized font-size tokens across views for more consistent readability.
+- Improved footer branding:
+  - `Codyard Studio` now links to `https://codyard.dev` and opens in a new tab.
+
 ## v0.4.33 - 2026-02-20
 
 - Improved local web page title behavior:

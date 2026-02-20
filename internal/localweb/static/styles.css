@@ -11,6 +11,14 @@
   --glass: rgba(10, 18, 35, 0.78);
   --shadow: 0 28px 70px rgba(0, 0, 0, 0.45);
   --radius: 18px;
+  --fs-2xs: 0.72rem;
+  --fs-xs: 0.78rem;
+  --fs-sm: 0.84rem;
+  --fs-md: 0.92rem;
+  --fs-base: 1rem;
+  --fs-lg: 1.12rem;
+  --fs-xl: 1.24rem;
+  --fs-display: clamp(1.7rem, 4vw, 3rem);
 }
 
 html {
@@ -26,7 +34,7 @@ html[data-font-size='medium'] {
 }
 
 html[data-font-size='large'] {
-  font-size: 20px;
+  font-size: 22px;
 }
 
 * {
@@ -104,7 +112,7 @@ body::before {
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 0.2em;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--text-1);
 }
 
@@ -115,7 +123,7 @@ h2 {
 }
 
 h1 {
-  font-size: clamp(1.7rem, 4vw, 3rem);
+  font-size: var(--fs-display);
   line-height: 1;
   margin-top: 0.35rem;
 }
@@ -132,14 +140,14 @@ h1 {
 }
 
 .topbar-logo {
-  height: clamp(1.7rem, 4vw, 3rem);
+  height: var(--fs-display);
   width: auto;
   object-fit: contain;
   flex: 0 0 auto;
 }
 
 h2 {
-  font-size: 1.24rem;
+  font-size: var(--fs-xl);
 }
 
 .subtitle {
@@ -177,7 +185,7 @@ h2 {
   align-items: center;
   gap: 0.48rem;
   color: var(--text-1);
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
 }
 
 .lang-switch select,
@@ -198,7 +206,7 @@ h2 {
 .stats span {
   display: block;
   color: var(--text-1);
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
 }
 
 .stats strong {
@@ -216,7 +224,7 @@ h2 {
 
 .tabs .tab-btn,
 .tabs .action-btn {
-  font-size: 1rem;
+  font-size: var(--fs-base);
   line-height: 1.2;
 }
 
@@ -305,7 +313,7 @@ button:disabled {
 
 #calendarMonthLabel {
   font-family: 'Fraunces', serif;
-  font-size: 1.12rem;
+  font-size: var(--fs-lg);
   color: var(--lime);
 }
 
@@ -356,7 +364,7 @@ button:disabled {
 }
 
 #calendarDayListTitle {
-  font-size: 0.86rem;
+  font-size: var(--fs-sm);
   color: var(--cyan);
 }
 
@@ -391,7 +399,7 @@ button:disabled {
 }
 
 .legend-chip {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   border-radius: 999px;
   border: 1px solid var(--line);
   padding: 0.14rem 0.48rem;
@@ -427,7 +435,7 @@ button:disabled {
 
 .calendar-weekdays span {
   text-align: center;
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.03em;
   color: var(--text-1);
 }
@@ -454,7 +462,7 @@ button:disabled {
 .calendar-reader-head h3 {
   margin: 0;
   font-family: 'Fraunces', serif;
-  font-size: 1.04rem;
+  font-size: var(--fs-base);
 }
 
 .calendar-reader-date {
@@ -533,12 +541,12 @@ button.calendar-day-cell {
 }
 
 .calendar-day-num {
-  font-size: 1rem;
+  font-size: var(--fs-base);
   font-weight: 700;
 }
 
 .calendar-day-status {
-  font-size: 0.72rem;
+  font-size: var(--fs-2xs);
   color: var(--text-1);
 }
 
@@ -570,7 +578,7 @@ button.calendar-day-cell {
 }
 
 .calendar-entry-more-btn {
-  font-size: 0.68rem;
+  font-size: var(--fs-2xs);
   color: var(--cyan);
   line-height: 1;
   padding: 0 0.06rem;
@@ -700,18 +708,18 @@ textarea {
 
 .item h3 {
   margin: 0;
-  font-size: 0.99rem;
+  font-size: var(--fs-base);
 }
 
 .item p {
   margin: 0.38rem 0 0;
   color: var(--text-1);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
 }
 
 .item .meta {
   margin-top: 0.4rem;
-  font-size: 0.74rem;
+  font-size: var(--fs-2xs);
   color: var(--cyan);
 }
 
@@ -743,7 +751,7 @@ textarea {
 .diary-item .item-preview {
   margin: 0.38rem 0 0;
   color: var(--text-1);
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
 }
 
 .mini-btn {
@@ -752,7 +760,7 @@ textarea {
   background: rgba(6, 12, 24, 0.9);
   border-radius: 8px;
   padding: 0.2rem 0.44rem;
-  font-size: 0.7rem;
+  font-size: var(--fs-2xs);
   line-height: 1.1;
   flex: 0 0 auto;
 }
@@ -764,7 +772,7 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.86rem;
+  font-size: var(--fs-sm);
 }
 
 .sync-icon {
@@ -798,7 +806,7 @@ textarea {
   border-radius: 999px;
   padding: 0.02rem 0.36rem;
   color: var(--lime);
-  font-size: 0.66rem;
+  font-size: var(--fs-2xs);
   line-height: 1.2;
 }
 
@@ -815,7 +823,7 @@ textarea {
 .calendar-ym {
   display: block;
   padding: 0.2rem 0.22rem;
-  font-size: 0.58rem;
+  font-size: var(--fs-2xs);
   letter-spacing: 0.03em;
   color: var(--text-1);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -824,7 +832,7 @@ textarea {
 .calendar-day {
   display: block;
   padding: 0.28rem 0.2rem 0.3rem;
-  font-size: 1.08rem;
+  font-size: var(--fs-lg);
   line-height: 1;
   color: var(--lime);
 }
@@ -864,7 +872,7 @@ textarea {
 }
 
 .owner-logo strong {
-  font-size: 0.8rem;
+  font-size: var(--fs-xs);
   color: var(--lime);
 }
 
@@ -874,12 +882,12 @@ textarea {
 
 .owner-copy h3 {
   margin: 0;
-  font-size: 0.98rem;
+  font-size: var(--fs-base);
 }
 
 .owner-copy p {
   margin: 0.35rem 0 0;
-  font-size: 0.84rem;
+  font-size: var(--fs-sm);
   color: var(--text-1);
 }
 
@@ -893,7 +901,7 @@ textarea {
   margin-left: auto;
   text-align: right;
   min-width: 260px;
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
   line-height: 1.45;
 }
 
@@ -1003,7 +1011,7 @@ label {
   display: grid;
   gap: 0.35rem;
   color: var(--text-1);
-  font-size: 0.86rem;
+  font-size: var(--fs-sm);
 }
 
 .checkline {
@@ -1037,7 +1045,7 @@ button.danger {
 
 .muted {
   color: var(--text-1);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
 }
 
 .footer {
@@ -1051,7 +1059,13 @@ button.danger {
 
 .footer-copyright {
   color: var(--text-1);
-  font-size: 0.78rem;
+  font-size: var(--fs-xs);
+}
+
+.footer-copyright a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @media (max-width: 980px) {
@@ -1138,7 +1152,7 @@ button.danger {
   }
 
   .calendar-weekdays span {
-    font-size: 0.66rem;
+    font-size: var(--fs-2xs);
   }
 
   .calendar-day-cell,
@@ -1148,10 +1162,10 @@ button.danger {
   }
 
   .calendar-day-num {
-    font-size: 0.88rem;
+    font-size: var(--fs-sm);
   }
 
   .calendar-day-status {
-    font-size: 0.64rem;
+    font-size: var(--fs-2xs);
   }
 }
