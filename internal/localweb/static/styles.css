@@ -401,6 +401,16 @@ textarea {
   flex: 0 0 auto;
 }
 
+.icon-btn {
+  width: 1.7rem;
+  height: 1.45rem;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.86rem;
+}
+
 .default-tag {
   display: inline-flex;
   margin-left: 0.42rem;

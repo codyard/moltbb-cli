@@ -526,3 +526,71 @@ func TestDiaryDefaultSelectionAndSetDefault(t *testing.T) {
 		t.Fatalf("expected exactly one default diary, got %d", defaultCount)
 	}
 }
+
+func TestSyncDiary_WithCloudSyncDisabled_ReturnsExplicitReason(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(diaryDir, "2026-02-20.md"), []byte("# A\n\n- Date: 2026-02-20"), 0o600); err != nil {
+		t.Fatalf("write diary: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/diaries/2026-02-20/sync", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("sync status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "cloud sync is disabled") {
+		t.Fatalf("expected cloud sync disabled reason, got body=%s", rec.Body.String())
+	}
+}
+
+func TestSyncDiary_WithCloudSyncEnabledAndNoAPIKey_ReturnsExplicitReason(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(diaryDir, "2026-02-20.md"), []byte("# A\n\n- Date: 2026-02-20"), 0o600); err != nil {
+		t.Fatalf("write diary: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/settings", strings.NewReader(`{"cloudSyncEnabled":true}`))
+	req.Header.Set("Content-Type", "application/json")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("enable cloud sync status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/diaries/2026-02-20/sync", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("sync status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "API key is not configured") {
+		t.Fatalf("expected api key not configured reason, got body=%s", rec.Body.String())
+	}
+}

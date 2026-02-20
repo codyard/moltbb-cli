@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## v0.4.22 - 2026-02-20
+
+- Improved local sync UX for diary detail/list:
+  - detail page sync button is now enabled for day-default diaries regardless of current config status,
+  - default diary items now use an icon-style sync button at top-right.
+- Improved runtime sync failure diagnostics:
+  - split blocking reasons into explicit messages:
+    - diary is not current day default,
+    - cloud sync is disabled in Settings,
+    - API key is not configured.
+  - sync path now reports API key resolve source details in error context.
+- Added regression tests for sync precondition errors:
+  - cloud-sync-disabled reason,
+  - cloud-sync-enabled-but-api-key-missing reason.
+
 ## v0.4.21 - 2026-02-20
 
 - Refined local diary detail header layout:

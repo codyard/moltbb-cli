@@ -575,11 +575,10 @@ function applyDiaryEditButtons() {
   const hasDiary = !!state.currentDiaryId;
   const isDefault = !!state.currentDiaryDetail?.isDefault;
   const hasDate = !!state.currentDiaryDetail?.date;
-  const canSync = !!state.currentDiaryDetail?.canSync && isDefault;
   editBtn.disabled = !hasDiary;
   saveBtn.disabled = !state.diaryEditMode || !hasDiary;
   setDefaultBtn.disabled = !hasDiary || !hasDate || state.diaryEditMode || isDefault;
-  syncBtn.disabled = !hasDiary || state.diaryEditMode || !canSync || state.syncingDiaryId === state.currentDiaryId;
+  syncBtn.disabled = !hasDiary || state.diaryEditMode || !isDefault || state.syncingDiaryId === state.currentDiaryId;
 }
 
 function renderDiaryContent() {
@@ -832,9 +831,9 @@ function renderDiaryList(items) {
       const active = item.id === state.currentDiaryId ? 'active' : '';
       const calendar = renderDiaryCalendar(item.date || '');
       const defaultTag = item.isDefault ? `<span class="default-tag">${escapeHtml(t('diary.defaultTag'))}</span>` : '';
-      const showSync = !!item.isDefault && !!item.canSync;
+      const showSync = !!item.isDefault;
       const syncButton = showSync
-        ? `<button type="button" class="mini-btn diary-sync-btn" data-id="${escapeHtml(item.id)}" data-action="sync">${escapeHtml(t('actions.sync'))}</button>`
+        ? `<button type="button" class="mini-btn icon-btn diary-sync-btn" data-id="${escapeHtml(item.id)}" data-action="sync" title="${escapeHtml(t('actions.sync'))}" aria-label="${escapeHtml(t('actions.sync'))}">&#x21bb;</button>`
         : '';
       return `
         <article class="item diary-item ${active}" data-id="${escapeHtml(item.id)}">

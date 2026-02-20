@@ -1218,10 +1218,23 @@ func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
 		return diarySyncResponse{}, true, errors.New("diary date is required for sync")
 	}
 	if !detail.IsDefault {
-		return diarySyncResponse{}, true, errors.New("only default diary of the day can be synced")
+		return diarySyncResponse{}, true, errors.New("sync blocked: this diary is not the day default, use 'Set Default' first")
 	}
-	if !detail.CanSync {
-		return diarySyncResponse{}, true, errors.New("cloud sync is disabled or api key is not configured")
+
+	cloudSyncEnabled, err := s.getCloudSyncEnabled()
+	if err != nil {
+		return diarySyncResponse{}, true, err
+	}
+	if !cloudSyncEnabled {
+		return diarySyncResponse{}, true, errors.New("sync blocked: cloud sync is disabled in Settings")
+	}
+
+	apiKeyConfigured, _, keySource, err := s.resolveAPIKeyState()
+	if err != nil {
+		return diarySyncResponse{}, true, err
+	}
+	if !apiKeyConfigured {
+		return diarySyncResponse{}, true, errors.New("sync blocked: API key is not configured. Set it in Settings or run `moltbb login --apikey <key>`")
 	}
 
 	filePath := filepath.Join(s.diaryDir, detail.RelPath)
@@ -1232,7 +1245,7 @@ func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
 
 	apiKey, err := auth.ResolveAPIKey()
 	if err != nil {
-		return diarySyncResponse{}, true, fmt.Errorf("resolve api key: %w", err)
+		return diarySyncResponse{}, true, fmt.Errorf("resolve api key from %s: %w", keySource, err)
 	}
 
 	cfg := config.Default()
