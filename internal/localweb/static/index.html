@@ -113,18 +113,21 @@
             <span class="legend-chip legend-default" data-i18n="calendar.legendDefault">Default diary selected</span>
           </div>
           <div class="calendar-layout">
-            <div class="calendar-board">
-              <div class="calendar-weekdays" id="calendarWeekdays"></div>
-              <div class="diary-history-grid" id="calendarGrid"></div>
-              <div class="calendar-day-list" id="calendarDayListWrap" hidden>
-                <div class="calendar-day-list-head">
-                  <strong id="calendarDayListTitle">-</strong>
-                  <span class="muted" id="calendarDayListSummary"></span>
-                </div>
-                <div class="calendar-day-list-items" id="calendarDayList"></div>
+            <div class="calendar-top">
+              <div class="calendar-board">
+                <div class="calendar-weekdays" id="calendarWeekdays"></div>
+                <div class="diary-history-grid" id="calendarGrid"></div>
               </div>
+              <aside class="calendar-day-list-panel">
+                <div class="calendar-day-list" id="calendarDayListWrap" hidden>
+                  <div class="calendar-day-list-head">
+                    <strong id="calendarDayListTitle">-</strong>
+                    <span class="muted" id="calendarDayListSummary"></span>
+                  </div>
+                  <div class="calendar-day-list-items" id="calendarDayList"></div>
+                </div>
             </div>
-            <aside class="calendar-reader">
+            <section class="calendar-reader">
               <div class="section-head calendar-reader-head">
                 <div>
                   <h3 data-i18n="calendar.detailTitle">Diary Reader</h3>
@@ -137,7 +140,7 @@
               </div>
               <p class="muted" id="calendarDetailMeta"></p>
               <pre id="calendarDetailContent" class="content slim">Select a date with diary entries to read here.</pre>
-            </aside>
+            </section>
           </div>
         </article>
       </section>

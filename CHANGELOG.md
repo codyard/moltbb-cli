@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.27 - 2026-02-20
+
+- Refined calendar page layout:
+  - moved same-day diary list to the right side of the calendar grid,
+  - moved diary detail reader to a full-width panel below calendar + list.
+- Enhanced calendar cell markers:
+  - blue diary dots now support tooltip text and direct click actions,
+  - clicking dot `N` opens the `N`-th diary for that day directly,
+  - overflow `+N` marker is clickable to open day diary selection context.
+
 ## v0.4.26 - 2026-02-20
 
 - Improved calendar-day cell indicators:

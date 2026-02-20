@@ -84,6 +84,8 @@ const MESSAGES = {
     'calendar.detailDate': 'Selected date: {date}',
     'calendar.dayListTitle': 'Diaries on {date}',
     'calendar.dayListSummary': '{count} diaries',
+    'calendar.dotTip': 'Open diary #{index} on {date}',
+    'calendar.dotMoreTip': 'Show diaries on {date}',
     'calendar.openInDiaries': 'Open In Diaries',
     'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
     'prompt.listTitle': 'Prompt Templates',
@@ -247,6 +249,8 @@ const MESSAGES = {
     'calendar.detailDate': '已选日期：{date}',
     'calendar.dayListTitle': '{date} 当天日记',
     'calendar.dayListSummary': '共 {count} 篇',
+    'calendar.dotTip': '打开 {date} 的第 {index} 篇日记',
+    'calendar.dotMoreTip': '查看 {date} 当天日记列表',
     'calendar.openInDiaries': '在日记页打开',
     'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
     'prompt.listTitle': '提示词模板',
@@ -1003,7 +1007,7 @@ function calendarWeekdayLabels() {
   ];
 }
 
-function renderCalendarEntryMarkers(count) {
+function renderCalendarEntryMarkers(date, count) {
   const value = Number.isFinite(count) ? Math.max(0, count) : 0;
   if (value <= 0) {
     return `<span class="calendar-day-status">${escapeHtml(t('calendar.statusNone'))}</span>`;
@@ -1011,10 +1015,17 @@ function renderCalendarEntryMarkers(count) {
 
   const maxDots = 4;
   const dots = [];
-  for (let i = 0; i < Math.min(value, maxDots); i += 1) {
-    dots.push('<span class="calendar-entry-dot" aria-hidden="true"></span>');
+  const visibleDots = Math.min(value, maxDots);
+  for (let i = 0; i < visibleDots; i += 1) {
+    const idx = i + 1;
+    const tip = t('calendar.dotTip', { date, index: idx });
+    dots.push(
+      `<button type="button" class="calendar-entry-dot-btn" data-date="${date}" data-diary-index="${i}" title="${escapeHtml(tip)}" aria-label="${escapeHtml(tip)}"><span class="calendar-entry-dot" aria-hidden="true"></span></button>`,
+    );
   }
-  const more = value > maxDots ? `<span class="calendar-entry-more">+${value - maxDots}</span>` : '';
+  const more = value > maxDots
+    ? `<button type="button" class="calendar-entry-more-btn" data-date="${date}" title="${escapeHtml(t('calendar.dotMoreTip', { date }))}" aria-label="${escapeHtml(t('calendar.dotMoreTip', { date }))}">+${value - maxDots}</button>`
+    : '';
   const aria = value === 1 ? t('calendar.statusSingle') : t('calendar.statusMulti', { count: value });
   return `<span class="calendar-day-status calendar-day-dots" aria-label="${escapeHtml(aria)}">${dots.join('')}${more}</span>`;
 }
@@ -1088,15 +1099,13 @@ function renderDiaryHistoryCalendar() {
     const defaultClass = hasDefault ? ' is-default' : '';
     const content = `
       <span class="calendar-day-num">${day}</span>
-      ${renderCalendarEntryMarkers(count)}
+      ${renderCalendarEntryMarkers(date, count)}
       ${defaultMarker}
     `;
 
     if (count > 0) {
       const title = `${date} · ${status}`;
-      cells.push(
-        `<button type="button" class="calendar-day-cell ${statusClass}${todayClass}${selectedClass}${defaultClass}" data-date="${date}" data-default-id="${escapeHtml(defaultDiaryId)}" title="${escapeHtml(title)}">${content}</button>`,
-      );
+      cells.push(`<div class="calendar-day-cell has-entry ${statusClass}${todayClass}${selectedClass}${defaultClass}" data-date="${date}" data-default-id="${escapeHtml(defaultDiaryId)}" title="${escapeHtml(title)}" role="button" tabindex="0">${content}</div>`);
     } else {
       cells.push(`<div class="calendar-day-cell ${statusClass}${todayClass}${selectedClass}${defaultClass}">${content}</div>`);
     }
@@ -1111,9 +1120,34 @@ function renderDiaryHistoryCalendar() {
     : t('calendar.summaryEmpty');
   grid.innerHTML = cells.join('');
 
-  grid.querySelectorAll('button.calendar-day-cell[data-date]').forEach((node) => {
+  grid.querySelectorAll('.calendar-day-cell.has-entry[data-date]').forEach((node) => {
     node.addEventListener('click', () => {
       selectCalendarDate(node.dataset.date || '', node.dataset.defaultId || '')
+        .catch((err) => setStatusKey('diary.loadListFailed', { message: err.message }, true));
+    });
+    node.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') {
+        return;
+      }
+      event.preventDefault();
+      selectCalendarDate(node.dataset.date || '', node.dataset.defaultId || '')
+        .catch((err) => setStatusKey('diary.loadListFailed', { message: err.message }, true));
+    });
+  });
+
+  grid.querySelectorAll('button.calendar-entry-dot-btn[data-date]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const idx = Number.parseInt(node.dataset.diaryIndex || '-1', 10);
+      selectCalendarDate(node.dataset.date || '', '', Number.isFinite(idx) ? idx : -1)
+        .catch((err) => setStatusKey('diary.loadListFailed', { message: err.message }, true));
+    });
+  });
+
+  grid.querySelectorAll('button.calendar-entry-more-btn[data-date]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.stopPropagation();
+      selectCalendarDate(node.dataset.date || '')
         .catch((err) => setStatusKey('diary.loadListFailed', { message: err.message }, true));
     });
   });
@@ -1252,7 +1286,7 @@ async function loadCalendarDiaryDetail(id) {
   renderCalendarDiaryDetail();
 }
 
-async function selectCalendarDate(date, defaultDiaryId = '') {
+async function selectCalendarDate(date, defaultDiaryId = '', preferredIndex = -1) {
   const trimmedDate = String(date || '').trim();
   if (!trimmedDate) {
     return;
@@ -1272,7 +1306,9 @@ async function selectCalendarDate(date, defaultDiaryId = '') {
   }
 
   let targetID = '';
-  if (defaultDiaryId && items.some((item) => item.id === defaultDiaryId)) {
+  if (preferredIndex >= 0 && preferredIndex < items.length && items[preferredIndex]?.id) {
+    targetID = items[preferredIndex].id;
+  } else if (defaultDiaryId && items.some((item) => item.id === defaultDiaryId)) {
     targetID = defaultDiaryId;
   } else if (state.calendarSelectedDiaryId && items.some((item) => item.id === state.calendarSelectedDiaryId)) {
     targetID = state.calendarSelectedDiaryId;
