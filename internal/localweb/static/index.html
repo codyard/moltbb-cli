@@ -66,13 +66,15 @@
             <div class="list" id="diaryList"></div>
           </article>
           <article class="panel card">
-            <div class="section-head">
-              <h2 data-i18n="diary.detailTitle">Diary Detail</h2>
-              <div class="inline-actions">
+            <div class="section-head diary-detail-head">
+              <div class="diary-detail-meta">
+                <h2 data-i18n="diary.detailTitle">Diary Detail</h2>
                 <div id="diaryMeta" class="muted diary-meta-block">
                   <span id="diaryMetaPrimary"></span>
                   <span id="diaryMetaFilename"></span>
                 </div>
+              </div>
+              <div class="inline-actions diary-detail-actions">
                 <button id="btnDiaryViewMode" type="button">Reading</button>
                 <button id="btnDiaryEdit" type="button" data-i18n="actions.edit">Edit</button>
                 <button id="btnDiarySave" type="button" data-i18n="actions.save">Save</button>

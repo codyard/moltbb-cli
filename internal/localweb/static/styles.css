@@ -257,6 +257,20 @@ button:disabled {
   margin-bottom: 0.78rem;
 }
 
+.diary-detail-head {
+  align-items: flex-start;
+}
+
+.diary-detail-meta {
+  min-width: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.diary-detail-actions {
+  justify-content: flex-end;
+}
+
 .inline-actions {
   display: inline-flex;
   align-items: flex-start;
@@ -271,8 +285,7 @@ button:disabled {
 .diary-meta-block {
   display: grid;
   gap: 0.12rem;
-  margin-right: 0.25rem;
-  min-width: 220px;
+  min-width: 260px;
 }
 
 #diaryMetaFilename {
@@ -682,6 +695,19 @@ button.danger {
   .owner-meta {
     margin-left: 0;
     text-align: left;
+    min-width: 0;
+  }
+
+  .diary-detail-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .diary-detail-actions {
+    justify-content: flex-start;
+  }
+
+  .diary-meta-block {
     min-width: 0;
   }
 }

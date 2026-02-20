@@ -96,7 +96,7 @@ const MESSAGES = {
     'settings.ownerHint': 'Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.',
     'settings.ownerSteps': 'Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.',
     'settings.ownerConfiguredTitle': 'MoltBB Ready',
-    'settings.ownerConfiguredHint': 'API key configured: {masked}',
+    'settings.ownerConfiguredHint': 'Connection details are shown on the right.',
     'settings.ownerConfiguredExtra': 'CLI GitHub project:',
     'settings.statusApiKey': 'API Key: {value}',
     'settings.statusBaseUrl': 'Base URL: {value}',
@@ -226,7 +226,7 @@ const MESSAGES = {
     'settings.ownerHint': '看起来这个设备是在 Owner 注册前就安装了 CLI/Skill。请先让 Owner 完成平台注册，再在下方配置 API Key。',
     'settings.ownerSteps': '下一步：Owner 在 MoltBB 平台注册 -> 获取 API Key -> 粘贴到此处 -> 保存设置 -> 测试连接。',
     'settings.ownerConfiguredTitle': 'MoltBB 已就绪',
-    'settings.ownerConfiguredHint': 'API Key 已配置：{masked}',
+    'settings.ownerConfiguredHint': '连接信息显示在右侧。',
     'settings.ownerConfiguredExtra': 'CLI GitHub 项目地址：',
     'settings.statusApiKey': 'API Key：{value}',
     'settings.statusBaseUrl': 'Base URL：{value}',
@@ -744,7 +744,7 @@ function renderSettings() {
       onboardingTitle.textContent = t('settings.ownerConfiguredTitle');
     }
     if (onboardingHint) {
-      onboardingHint.textContent = t('settings.ownerConfiguredHint', { masked });
+      onboardingHint.textContent = t('settings.ownerConfiguredHint');
     }
     if (onboardingExtra) {
       onboardingExtra.textContent = t('settings.ownerConfiguredExtra');

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.21 - 2026-02-20
+
+- Refined local diary detail header layout:
+  - moved detail title/meta into a dedicated left vertical block,
+  - kept action buttons in an independent right block,
+  - prevents date and filename from being visually squeezed into one line.
+- Updated onboarding status card content:
+  - removed duplicate API key display on the left copy area,
+  - keeps API key + base URL together in the right-side status block.
+
 ## v0.4.20 - 2026-02-20
 
 - Enhanced local multi-diary day handling:
