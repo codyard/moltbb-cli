@@ -210,6 +210,11 @@ button {
   font-weight: 600;
 }
 
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .tab-btn.active {
   border-color: rgba(213, 255, 47, 0.6);
   box-shadow: 0 0 0 1px rgba(213, 255, 47, 0.3) inset;
@@ -447,6 +452,11 @@ textarea {
 
 .content.slim {
   min-height: 180px;
+}
+
+#diaryEditor {
+  white-space: pre;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 }
 
 .content.markdown-view {

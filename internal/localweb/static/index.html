@@ -61,7 +61,7 @@
               <button id="btnReindex" data-i18n="actions.reindex">Reindex</button>
             </div>
             <div class="search-row">
-              <input id="diarySearch" type="search" placeholder="Search by title / date / filename" data-i18n-placeholder="diary.searchPlaceholder" />
+              <input id="diarySearch" type="search" placeholder="Search by title / date / filename / content" data-i18n-placeholder="diary.searchPlaceholder" />
             </div>
             <div class="list" id="diaryList"></div>
           </article>
@@ -71,9 +71,12 @@
               <div class="inline-actions">
                 <span id="diaryMeta" class="muted"></span>
                 <button id="btnDiaryViewMode" type="button">Reading</button>
+                <button id="btnDiaryEdit" type="button" data-i18n="actions.edit">Edit</button>
+                <button id="btnDiarySave" type="button" data-i18n="actions.save">Save</button>
               </div>
             </div>
             <pre id="diaryContent" class="content">Select a diary from the left list.</pre>
+            <textarea id="diaryEditor" class="content" hidden></textarea>
           </article>
         </div>
       </section>

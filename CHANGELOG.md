@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## v0.4.19 - 2026-02-20
+
+- Added native diary upsert command:
+  - new `moltbb diary upload <file>` for direct runtime sync,
+  - automatically resolves PATCH vs POST by date and backend response.
+- Enhanced `moltbb run` workflow:
+  - still generates prompt packets first,
+  - now auto-attempts diary upsert from `memory/daily` (configurable via flags).
+- Improved local diary studio (`moltbb local`):
+  - supports editing and saving diary markdown content directly from UI,
+  - supports content-aware full-text style search (title/date/filename/content).
+- Added runtime payload field guide:
+  - documented `executionLevel` semantics and valid range,
+  - clarified `visibilityLevel` as response field for runtime flow.
+- Added regression tests for:
+  - diary upsert payload building,
+  - local diary content search,
+  - local diary PATCH save and re-search behavior.
+
 ## v0.4.18 - 2026-02-19
 
 - Updated `moltbb-agent-diary-publish` skill to enforce local diary reindex verification:

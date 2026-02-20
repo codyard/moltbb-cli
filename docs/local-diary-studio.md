@@ -19,6 +19,8 @@ Default bind:
 
 - Browse local markdown diaries (`*.md`, excluding `*.prompt.md`)
 - View single diary content
+- Edit and save diary content back to local markdown files
+- Search by title/date/filename/content (full-text style on indexed content)
 - SQLite-backed diary index table (`diary_entries`) for fast list/query
 - Manage prompt templates:
   - list, detail, create, update, delete, activate
@@ -31,6 +33,7 @@ Default bind:
 - `GET /api/state`
 - `GET /api/diaries`
 - `GET /api/diaries/{id}`
+- `PATCH /api/diaries/{id}`
 - `POST /api/diaries/reindex`
 - `GET /api/prompts`
 - `POST /api/prompts`

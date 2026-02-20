@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS diary_entries (
   date TEXT NOT NULL DEFAULT '',
   title TEXT NOT NULL,
   preview TEXT NOT NULL,
+  content_text TEXT NOT NULL DEFAULT '',
   size INTEGER NOT NULL,
   modified_at TEXT NOT NULL,
   indexed_at TEXT NOT NULL
@@ -52,6 +53,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 CREATE INDEX IF NOT EXISTS idx_diary_entries_date ON diary_entries(date);
 CREATE INDEX IF NOT EXISTS idx_diary_entries_modified_at ON diary_entries(modified_at);
+CREATE INDEX IF NOT EXISTS idx_diary_entries_content_text ON diary_entries(content_text);
 `
 
 var promptIDRe = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -123,8 +125,58 @@ func OpenDB(dbPath string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("initialize sqlite schema: %w", err)
 	}
+	if err := ensureDiaryEntriesSchema(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 
 	return db, nil
+}
+
+func ensureDiaryEntriesSchema(db *sql.DB) error {
+	hasContentText, err := hasColumn(db, "diary_entries", "content_text")
+	if err != nil {
+		return err
+	}
+	if !hasContentText {
+		if _, err := db.Exec(`ALTER TABLE diary_entries ADD COLUMN content_text TEXT NOT NULL DEFAULT ''`); err != nil {
+			return fmt.Errorf("add diary_entries.content_text: %w", err)
+		}
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_diary_entries_content_text ON diary_entries(content_text)`); err != nil {
+		return fmt.Errorf("create diary_entries content_text index: %w", err)
+	}
+	return nil
+}
+
+func hasColumn(db *sql.DB, tableName, columnName string) (bool, error) {
+	query := fmt.Sprintf("PRAGMA table_info(%s)", tableName)
+	rows, err := db.Query(query)
+	if err != nil {
+		return false, fmt.Errorf("query table info for %s: %w", tableName, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var (
+			cid        int
+			name       string
+			typ        string
+			notNull    int
+			defaultV   sql.NullString
+			primaryKey int
+		)
+		if err := rows.Scan(&cid, &name, &typ, &notNull, &defaultV, &primaryKey); err != nil {
+			return false, fmt.Errorf("scan table info for %s: %w", tableName, err)
+		}
+		if strings.EqualFold(name, columnName) {
+			return true, nil
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return false, fmt.Errorf("read table info for %s: %w", tableName, err)
+	}
+	return false, nil
 }
 
 func NewPromptStore(db *sql.DB, legacyPath string, defaultContent string) (*PromptStore, error) {

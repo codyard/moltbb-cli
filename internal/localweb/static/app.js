@@ -23,6 +23,8 @@ const MESSAGES = {
     'tabs.settings': 'Settings',
     'actions.refresh': 'Refresh',
     'actions.reindex': 'Reindex',
+    'actions.edit': 'Edit',
+    'actions.cancel': 'Cancel',
     'actions.new': 'New',
     'actions.save': 'Save',
     'actions.setActive': 'Set Active',
@@ -33,7 +35,7 @@ const MESSAGES = {
     'actions.clearApiKey': 'Clear API Key',
     'diary.listTitle': 'Diary List',
     'diary.detailTitle': 'Diary Detail',
-    'diary.searchPlaceholder': 'Search by title / date / filename',
+    'diary.searchPlaceholder': 'Search by title / date / filename / content',
     'diary.selectHint': 'Select a diary from the left list.',
     'diary.noFiles': 'No diary files found.',
     'diary.metaFormat': '{date} · {filename} · {modifiedAt}',
@@ -41,6 +43,9 @@ const MESSAGES = {
     'diary.viewRaw': 'Raw',
     'diary.loadFailed': 'Load diary failed: {message}',
     'diary.loadListFailed': 'Load diaries failed: {message}',
+    'diary.saveSuccess': 'Diary saved.',
+    'diary.saveMissing': 'Please select a diary first.',
+    'diary.saveFailed': 'Save diary failed: {message}',
     'prompt.listTitle': 'Prompt Templates',
     'prompt.editorTitle': 'Prompt Editor',
     'prompt.name': 'Name',
@@ -138,6 +143,8 @@ const MESSAGES = {
     'tabs.settings': '设置',
     'actions.refresh': '刷新',
     'actions.reindex': '重建索引',
+    'actions.edit': '编辑',
+    'actions.cancel': '取消',
     'actions.new': '新建',
     'actions.save': '保存',
     'actions.setActive': '设为激活',
@@ -148,7 +155,7 @@ const MESSAGES = {
     'actions.clearApiKey': '清除 API Key',
     'diary.listTitle': '日记列表',
     'diary.detailTitle': '日记详情',
-    'diary.searchPlaceholder': '按标题 / 日期 / 文件名搜索',
+    'diary.searchPlaceholder': '按标题 / 日期 / 文件名 / 内容搜索',
     'diary.selectHint': '请从左侧列表选择一篇日记。',
     'diary.noFiles': '未找到日记文件。',
     'diary.metaFormat': '{date} · {filename} · {modifiedAt}',
@@ -156,6 +163,9 @@ const MESSAGES = {
     'diary.viewRaw': '原文模式',
     'diary.loadFailed': '加载日记失败: {message}',
     'diary.loadListFailed': '加载日记列表失败: {message}',
+    'diary.saveSuccess': '日记已保存。',
+    'diary.saveMissing': '请先选择一篇日记。',
+    'diary.saveFailed': '保存日记失败: {message}',
     'prompt.listTitle': '提示词模板',
     'prompt.editorTitle': '提示词编辑器',
     'prompt.name': '名称',
@@ -244,6 +254,8 @@ const state = {
   activePromptId: null,
   diaryRawContent: '',
   diaryViewMode: 'raw',
+  diaryEditMode: false,
+  diaryDraftContent: '',
   currentDiaryDetail: null,
   currentPromptDetail: null,
   settings: null,
@@ -519,6 +531,7 @@ function applyDiaryViewModeButton() {
   if (!button) {
     return;
   }
+  button.disabled = state.diaryEditMode;
   if (state.diaryViewMode === 'raw') {
     button.textContent = t('diary.viewReading');
     button.dataset.mode = 'raw';
@@ -528,17 +541,47 @@ function applyDiaryViewModeButton() {
   }
 }
 
+function applyDiaryEditButtons() {
+  const editBtn = el('btnDiaryEdit');
+  const saveBtn = el('btnDiarySave');
+  if (!editBtn || !saveBtn) {
+    return;
+  }
+  editBtn.textContent = state.diaryEditMode ? t('actions.cancel') : t('actions.edit');
+  const hasDiary = !!state.currentDiaryId;
+  editBtn.disabled = !hasDiary;
+  saveBtn.disabled = !state.diaryEditMode || !hasDiary;
+}
+
 function renderDiaryContent() {
-  const target = el('diaryContent');
+  const preview = el('diaryContent');
+  const editor = el('diaryEditor');
+  if (!preview || !editor) {
+    return;
+  }
+
   const content = state.diaryRawContent || '';
+  if (state.diaryEditMode) {
+    preview.hidden = true;
+    editor.hidden = false;
+    editor.value = state.diaryDraftContent;
+    editor.focus();
+    applyDiaryViewModeButton();
+    applyDiaryEditButtons();
+    return;
+  }
+
+  preview.hidden = false;
+  editor.hidden = true;
   if (state.diaryViewMode === 'markdown') {
-    target.classList.add('markdown-view');
-    target.innerHTML = markdownToHtml(content);
+    preview.classList.add('markdown-view');
+    preview.innerHTML = markdownToHtml(content);
   } else {
-    target.classList.remove('markdown-view');
-    target.textContent = content;
+    preview.classList.remove('markdown-view');
+    preview.textContent = content;
   }
   applyDiaryViewModeButton();
+  applyDiaryEditButtons();
 }
 
 function renderDiaryMeta() {
@@ -556,6 +599,8 @@ function renderDiaryMeta() {
 
 function setDiaryEmptyState() {
   state.currentDiaryDetail = null;
+  state.diaryEditMode = false;
+  state.diaryDraftContent = '';
   state.diaryRawContent = t('diary.selectHint');
   renderDiaryContent();
   renderDiaryMeta();
@@ -760,6 +805,9 @@ async function loadDiaries() {
   const q = el('diarySearch').value.trim();
   const data = await api(`/diaries?limit=200&q=${encodeURIComponent(q)}`);
   state.diaries = data.items || [];
+  if (state.currentDiaryId && !state.diaries.some((item) => item.id === state.currentDiaryId)) {
+    state.currentDiaryId = null;
+  }
   if (!state.currentDiaryId && state.diaries[0]) {
     state.currentDiaryId = state.diaries[0].id;
   }
@@ -776,7 +824,9 @@ async function loadDiaryDetail(id, rerender = true) {
     const data = await api(`/diaries/${encodeURIComponent(id)}`);
     state.currentDiaryId = data.id;
     state.currentDiaryDetail = data;
+    state.diaryEditMode = false;
     state.diaryRawContent = data.content || '';
+    state.diaryDraftContent = state.diaryRawContent;
     if (rerender) {
       renderDiaryList(state.diaries);
     }
@@ -785,6 +835,42 @@ async function loadDiaryDetail(id, rerender = true) {
   } catch (err) {
     setStatusKey('diary.loadFailed', { message: err.message }, true);
   }
+}
+
+function toggleDiaryEditMode() {
+  if (!state.currentDiaryId) {
+    setStatusKey('diary.saveMissing', {}, true);
+    return;
+  }
+  state.diaryEditMode = !state.diaryEditMode;
+  if (state.diaryEditMode) {
+    state.diaryDraftContent = state.diaryRawContent || '';
+  } else {
+    state.diaryDraftContent = state.diaryRawContent || '';
+  }
+  renderDiaryContent();
+}
+
+async function saveDiaryContent() {
+  if (!state.currentDiaryId) {
+    setStatusKey('diary.saveMissing', {}, true);
+    return;
+  }
+  const editor = el('diaryEditor');
+  if (!editor) {
+    return;
+  }
+  const content = editor.value;
+  const data = await api(`/diaries/${encodeURIComponent(state.currentDiaryId)}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  });
+  state.currentDiaryDetail = data;
+  state.diaryRawContent = data.content || '';
+  state.diaryDraftContent = state.diaryRawContent;
+  state.diaryEditMode = false;
+  await loadDiaries();
+  setStatusKey('diary.saveSuccess');
 }
 
 function promptMarker(item) {
@@ -1197,6 +1283,18 @@ function bindEvents() {
   el('btnDiaryViewMode').addEventListener('click', () => {
     state.diaryViewMode = state.diaryViewMode === 'raw' ? 'markdown' : 'raw';
     renderDiaryContent();
+  });
+
+  el('btnDiaryEdit').addEventListener('click', () => {
+    toggleDiaryEditMode();
+  });
+
+  el('btnDiarySave').addEventListener('click', () => {
+    saveDiaryContent().catch((err) => setStatusKey('diary.saveFailed', { message: err.message }, true));
+  });
+
+  el('diaryEditor').addEventListener('input', (event) => {
+    state.diaryDraftContent = event.target.value;
   });
 }
 

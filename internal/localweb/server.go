@@ -62,6 +62,7 @@ type diarySummary struct {
 	RelPath    string `json:"relPath"`
 	Size       int64  `json:"size"`
 	ModifiedAt string `json:"modifiedAt"`
+	SearchText string `json:"-"`
 }
 
 type diaryDetail struct {
@@ -130,6 +131,10 @@ type generatePacketResponse struct {
 	PromptID   string   `json:"promptId"`
 	Hints      []string `json:"hints"`
 	Summary    string   `json:"summary"`
+}
+
+type diaryUpdateRequest struct {
+	Content *string `json:"content"`
 }
 
 type promptCreateRequest struct {
@@ -405,10 +410,6 @@ func (s *Server) handleDiaries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDiaryByID(w http.ResponseWriter, r *http.Request) {
-	if !allowMethod(w, r, http.MethodGet) {
-		return
-	}
-
 	id := strings.TrimPrefix(r.URL.Path, "/api/diaries/")
 	id = strings.TrimSpace(id)
 	if id == "" {
@@ -420,16 +421,42 @@ func (s *Server) handleDiaryByID(w http.ResponseWriter, r *http.Request) {
 		id = decoded
 	}
 
-	detail, found, err := s.loadDiaryDetail(id)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, err)
-		return
+	switch r.Method {
+	case http.MethodGet:
+		detail, found, err := s.loadDiaryDetail(id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if !found {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "diary not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, detail)
+	case http.MethodPatch:
+		var req diaryUpdateRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		if req.Content == nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "content is required"})
+			return
+		}
+		detail, found, err := s.saveDiaryContent(id, *req.Content)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if !found {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "diary not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, detail)
+	default:
+		w.Header().Set("Allow", "GET, PATCH")
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 	}
-	if !found {
-		writeJSON(w, http.StatusNotFound, map[string]any{"error": "diary not found"})
-		return
-	}
-	writeJSON(w, http.StatusOK, detail)
 }
 
 func (s *Server) handlePrompts(w http.ResponseWriter, r *http.Request) {
@@ -853,13 +880,56 @@ func (s *Server) loadDiaryDetail(id string) (diaryDetail, bool, error) {
 	return diaryDetail{diarySummary: item, Content: string(data)}, true, nil
 }
 
+func (s *Server) saveDiaryContent(id, content string) (diaryDetail, bool, error) {
+	item, found, err := s.getDiaryByID(id)
+	if err != nil {
+		return diaryDetail{}, false, err
+	}
+	if !found {
+		return diaryDetail{}, false, nil
+	}
+
+	path := filepath.Join(s.diaryDir, item.RelPath)
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		return diaryDetail{}, false, fmt.Errorf("write diary file: %w", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return diaryDetail{}, false, fmt.Errorf("stat diary file: %w", err)
+	}
+
+	base := strings.TrimSuffix(item.Filename, ".md")
+	contentBytes := []byte(content)
+	updated := item
+	updated.Date = detectDiaryDate(base, contentBytes)
+	updated.Title, updated.Preview = extractTitleAndPreview(contentBytes)
+	updated.Size = info.Size()
+	updated.ModifiedAt = info.ModTime().UTC().Format(time.RFC3339)
+	updated.SearchText = normalizeSearchText(content)
+
+	_, err = s.db.Exec(`
+UPDATE diary_entries
+SET date = ?, title = ?, preview = ?, content_text = ?, size = ?, modified_at = ?, indexed_at = ?
+WHERE id = ?
+`, updated.Date, updated.Title, updated.Preview, updated.SearchText, updated.Size, updated.ModifiedAt, time.Now().UTC().Format(time.RFC3339), updated.ID)
+	if err != nil {
+		return diaryDetail{}, false, fmt.Errorf("update diary index row: %w", err)
+	}
+
+	return diaryDetail{
+		diarySummary: updated,
+		Content:      content,
+	}, true, nil
+}
+
 func (s *Server) listDiaries(q string, limit, offset int) ([]diarySummary, int, error) {
 	whereSQL := ""
 	args := make([]any, 0, 8)
 	if strings.TrimSpace(q) != "" {
 		like := "%" + strings.ToLower(strings.TrimSpace(q)) + "%"
-		whereSQL = ` WHERE lower(title) LIKE ? OR lower(preview) LIKE ? OR lower(filename) LIKE ? OR lower(date) LIKE ?`
-		args = append(args, like, like, like, like)
+		whereSQL = ` WHERE lower(title) LIKE ? OR lower(preview) LIKE ? OR lower(filename) LIKE ? OR lower(date) LIKE ? OR content_text LIKE ?`
+		args = append(args, like, like, like, like, like)
 	}
 
 	countQuery := `SELECT COUNT(1) FROM diary_entries` + whereSQL
@@ -941,8 +1011,8 @@ func (s *Server) reindexDiaries() (int, error) {
 	}
 
 	stmt, err := tx.Prepare(`
-INSERT INTO diary_entries(id, rel_path, filename, date, title, preview, size, modified_at, indexed_at)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO diary_entries(id, rel_path, filename, date, title, preview, content_text, size, modified_at, indexed_at)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `)
 	if err != nil {
 		return 0, fmt.Errorf("prepare diary insert: %w", err)
@@ -951,7 +1021,7 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 	indexedAt := time.Now().UTC().Format(time.RFC3339)
 	for _, item := range items {
-		_, err := stmt.Exec(item.ID, item.RelPath, item.Filename, item.Date, item.Title, item.Preview, item.Size, item.ModifiedAt, indexedAt)
+		_, err := stmt.Exec(item.ID, item.RelPath, item.Filename, item.Date, item.Title, item.Preview, item.SearchText, item.Size, item.ModifiedAt, indexedAt)
 		if err != nil {
 			return 0, fmt.Errorf("insert diary index row: %w", err)
 		}
@@ -1005,6 +1075,7 @@ func (s *Server) scanDiaryFiles() ([]diarySummary, error) {
 			Date:       detectDiaryDate(base, data),
 			Title:      title,
 			Preview:    preview,
+			SearchText: normalizeSearchText(string(data)),
 			Filename:   name,
 			RelPath:    filepath.ToSlash(rel),
 			Size:       info.Size(),
@@ -1107,6 +1178,18 @@ func extractTitleAndPreview(content []byte) (string, string) {
 		preview = "(empty diary content)"
 	}
 	return truncate(title, 90), truncate(preview, 220)
+}
+
+func normalizeSearchText(content string) string {
+	fields := strings.Fields(strings.ToLower(content))
+	if len(fields) == 0 {
+		return ""
+	}
+	text := strings.Join(fields, " ")
+	if len(text) > 120000 {
+		return text[:120000]
+	}
+	return text
 }
 
 func truncate(input string, limit int) string {

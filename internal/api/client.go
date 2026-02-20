@@ -46,6 +46,19 @@ type BindResponse struct {
 	ActivationStatus string `json:"activation_status"`
 }
 
+type RuntimeDiaryUpsertPayload struct {
+	Summary        string `json:"summary"`
+	PersonaText    string `json:"personaText,omitempty"`
+	ExecutionLevel int    `json:"executionLevel"`
+	DiaryDate      string `json:"diaryDate"`
+}
+
+type RuntimeDiaryUpsertResult struct {
+	Action     string `json:"action"`
+	DiaryID    string `json:"diaryId,omitempty"`
+	StatusCode int    `json:"statusCode"`
+}
+
 func NewClient(cfg config.Config) (*Client, error) {
 	if strings.HasPrefix(cfg.APIBaseURL, "http://") && !cfg.AllowInsecureHTTP {
 		return nil, fmt.Errorf("api endpoint must use https unless allow_insecure_http is enabled: %s", cfg.APIBaseURL)
@@ -211,10 +224,203 @@ func decodeBindResponse(body []byte) (BindResponse, error) {
 	return BindResponse{}, fmt.Errorf("unable to parse bind response")
 }
 
-func (c *Client) doJSONWithAPIKey(ctx context.Context, method, path, apiKey string, payload any) ([]byte, int, error) {
-	data, err := json.Marshal(payload)
+func (c *Client) UpsertRuntimeDiary(ctx context.Context, apiKey string, payload RuntimeDiaryUpsertPayload) (RuntimeDiaryUpsertResult, error) {
+	diaryDate := strings.TrimSpace(payload.DiaryDate)
+	if diaryDate == "" {
+		return RuntimeDiaryUpsertResult{}, errors.New("diaryDate is required")
+	}
+	if strings.TrimSpace(payload.Summary) == "" {
+		return RuntimeDiaryUpsertResult{}, errors.New("summary is required")
+	}
+
+	existingID, err := c.findRuntimeDiaryIDByDate(ctx, apiKey, diaryDate)
 	if err != nil {
-		return nil, 0, fmt.Errorf("marshal request: %w", err)
+		return RuntimeDiaryUpsertResult{}, err
+	}
+	if existingID != "" {
+		status, err := c.patchRuntimeDiary(ctx, apiKey, existingID, payload.Summary, payload.PersonaText)
+		if err != nil {
+			return RuntimeDiaryUpsertResult{}, err
+		}
+		return RuntimeDiaryUpsertResult{
+			Action:     "PATCH",
+			DiaryID:    existingID,
+			StatusCode: status,
+		}, nil
+	}
+
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/runtime/diaries", apiKey, payload)
+	if err != nil {
+		return RuntimeDiaryUpsertResult{}, err
+	}
+	if status < 200 || status >= 300 {
+		return RuntimeDiaryUpsertResult{}, fmt.Errorf("upload diary failed with status %d: %s", status, string(body))
+	}
+
+	if diaryID, ok := parseCreatedDiaryID(body); ok {
+		return RuntimeDiaryUpsertResult{
+			Action:     "POST",
+			DiaryID:    diaryID,
+			StatusCode: status,
+		}, nil
+	}
+
+	if diaryID, conflict := parseDuplicateDiaryID(body); conflict {
+		if diaryID == "" {
+			diaryID, err = c.findRuntimeDiaryIDByDate(ctx, apiKey, diaryDate)
+			if err != nil {
+				return RuntimeDiaryUpsertResult{}, err
+			}
+		}
+		if diaryID == "" {
+			return RuntimeDiaryUpsertResult{}, errors.New("diary already exists but diary id is missing")
+		}
+		patchStatus, err := c.patchRuntimeDiary(ctx, apiKey, diaryID, payload.Summary, payload.PersonaText)
+		if err != nil {
+			return RuntimeDiaryUpsertResult{}, err
+		}
+		return RuntimeDiaryUpsertResult{
+			Action:     "PATCH_AFTER_CONFLICT",
+			DiaryID:    diaryID,
+			StatusCode: patchStatus,
+		}, nil
+	}
+
+	return RuntimeDiaryUpsertResult{
+		Action:     "POST",
+		StatusCode: status,
+	}, nil
+}
+
+func (c *Client) findRuntimeDiaryIDByDate(ctx context.Context, apiKey, diaryDate string) (string, error) {
+	query := url.Values{}
+	query.Set("startDate", diaryDate)
+	query.Set("endDate", diaryDate)
+	query.Set("page", "1")
+	query.Set("pageSize", "1")
+
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/runtime/diaries?"+query.Encode(), apiKey, nil)
+	if err != nil {
+		return "", err
+	}
+	if status < 200 || status >= 300 {
+		return "", fmt.Errorf("query runtime diaries failed with status %d: %s", status, string(body))
+	}
+
+	return parseFirstDiaryID(body), nil
+}
+
+func (c *Client) patchRuntimeDiary(ctx context.Context, apiKey, diaryID, summary, personaText string) (int, error) {
+	payload := map[string]string{
+		"summary":     summary,
+		"personaText": personaText,
+	}
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPatch, "/api/v1/runtime/diaries/"+diaryID, apiKey, payload)
+	if err != nil {
+		return 0, err
+	}
+	if status < 200 || status >= 300 {
+		return status, fmt.Errorf("patch diary failed with status %d: %s", status, string(body))
+	}
+	return status, nil
+}
+
+func parseCreatedDiaryID(body []byte) (string, bool) {
+	if id := parseFirstDiaryID(body); id != "" {
+		return id, true
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return "", false
+	}
+	success, ok := raw["success"].(bool)
+	return "", ok && success
+}
+
+func parseDuplicateDiaryID(body []byte) (string, bool) {
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return "", false
+	}
+	success, _ := raw["success"].(bool)
+	if success {
+		return "", false
+	}
+	code, _ := raw["code"].(string)
+	if code != "DIARY_ALREADY_EXISTS_USE_PATCH" {
+		return "", false
+	}
+	details, _ := raw["details"].(map[string]any)
+	if details == nil {
+		return "", true
+	}
+	id, _ := details["diaryId"].(string)
+	return strings.TrimSpace(id), true
+}
+
+func parseFirstDiaryID(body []byte) string {
+	var env envelope
+	if err := json.Unmarshal(body, &env); err == nil && len(env.Data) > 0 {
+		var data any
+		if err := json.Unmarshal(env.Data, &data); err == nil {
+			if id := extractDiaryID(data); id != "" {
+				return id
+			}
+		}
+	}
+
+	var raw map[string]any
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return ""
+	}
+	if id := extractDiaryID(raw); id != "" {
+		return id
+	}
+	if data, ok := raw["data"]; ok {
+		return extractDiaryID(data)
+	}
+	return ""
+}
+
+func extractDiaryID(value any) string {
+	switch v := value.(type) {
+	case map[string]any:
+		if id, ok := v["id"].(string); ok {
+			return strings.TrimSpace(id)
+		}
+		if data, ok := v["data"]; ok {
+			if id := extractDiaryID(data); id != "" {
+				return id
+			}
+		}
+		if items, ok := v["items"]; ok {
+			if id := extractDiaryID(items); id != "" {
+				return id
+			}
+		}
+		return ""
+	case []any:
+		if len(v) == 0 {
+			return ""
+		}
+		return extractDiaryID(v[0])
+	default:
+		return ""
+	}
+}
+
+func (c *Client) doJSONWithAPIKey(ctx context.Context, method, path, apiKey string, payload any) ([]byte, int, error) {
+	return c.doRequestWithAPIKey(ctx, method, path, apiKey, payload)
+}
+
+func (c *Client) doRequestWithAPIKey(ctx context.Context, method, path, apiKey string, payload any) ([]byte, int, error) {
+	var data []byte
+	var err error
+	if payload != nil {
+		data, err = json.Marshal(payload)
+		if err != nil {
+			return nil, 0, fmt.Errorf("marshal request: %w", err)
+		}
 	}
 
 	var lastErr error
@@ -224,12 +430,19 @@ func (c *Client) doJSONWithAPIKey(ctx context.Context, method, path, apiKey stri
 	}
 
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
-		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bytes.NewReader(data))
+		var bodyReader io.Reader
+		if payload != nil {
+			bodyReader = bytes.NewReader(data)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, bodyReader)
 		if err != nil {
 			return nil, 0, err
 		}
-		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json")
+		if payload != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		if strings.TrimSpace(apiKey) != "" {
 			req.Header.Set("X-API-Key", apiKey)
 			req.Header.Set("Authorization", "Bearer "+apiKey)

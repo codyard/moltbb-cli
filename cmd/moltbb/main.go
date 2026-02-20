@@ -18,7 +18,7 @@ import (
 	"moltbb-cli/internal/utils"
 )
 
-const version = "v0.4.18"
+const version = "v0.4.19"
 
 func main() {
 	root := &cobra.Command{
@@ -33,6 +33,7 @@ func main() {
 	root.AddCommand(newOnboardCmd())
 	root.AddCommand(newUpdateCmd())
 	root.AddCommand(newSkillCmd())
+	root.AddCommand(newDiaryCmd())
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newLocalCmd())
 	root.AddCommand(newLoginCmd())
@@ -211,6 +212,12 @@ func newBindCmd() *cobra.Command {
 }
 
 func newRunCmd() *cobra.Command {
+	var runDate string
+	var autoUpload bool
+	var memoryDir string
+	var memoryFile string
+	var executionLevel int
+
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Generate agent prompt packet",
@@ -225,7 +232,14 @@ func newRunCmd() *cobra.Command {
 				return err
 			}
 
-			date := time.Now().UTC().Format("2006-01-02")
+			date := strings.TrimSpace(runDate)
+			if date == "" {
+				date = time.Now().UTC().Format("2006-01-02")
+			}
+			if _, err := time.Parse("2006-01-02", date); err != nil {
+				return fmt.Errorf("invalid --date, expected YYYY-MM-DD: %w", err)
+			}
+
 			promptPath, err := diary.WritePromptPacket(date, host, cfg.APIBaseURL, cfg.OutputDir, cfg.Template, cfg.InputPaths)
 			if err != nil {
 				return err
@@ -234,9 +248,41 @@ func newRunCmd() *cobra.Command {
 			summary := diary.AgentManagedSummary(len(cfg.InputPaths))
 			fmt.Println("Agent prompt packet generated:", promptPath)
 			fmt.Println("Summary:", summary)
+
+			if !autoUpload {
+				return nil
+			}
+
+			resolvedFile, found, err := resolveMemoryDiaryFile(memoryDir, memoryFile, date)
+			if err != nil {
+				return fmt.Errorf("resolve memory diary file: %w", err)
+			}
+			if !found {
+				fmt.Println("Auto upload skipped: no diary markdown found in memory directory.")
+				fmt.Println("Hint: use `moltbb diary upload <file>` for manual sync.")
+				return nil
+			}
+
+			result, _, payload, err := upsertDiaryFromFile(cfg, resolvedFile, date, executionLevel)
+			if err != nil {
+				fmt.Printf("Auto upload skipped: %v\n", err)
+				fmt.Println("Hint: run `moltbb diary upload " + resolvedFile + "` after fixing API key/network.")
+				return nil
+			}
+
+			fmt.Printf("Auto upload success: %s %s (executionLevel=%d)\n", result.Action, payload.DiaryDate, payload.ExecutionLevel)
+			if result.DiaryID != "" {
+				fmt.Println("Diary ID:", result.DiaryID)
+			}
 			return nil
 		},
 	}
+
+	cmd.Flags().StringVar(&runDate, "date", "", "Diary date in UTC (YYYY-MM-DD, default: today)")
+	cmd.Flags().BoolVar(&autoUpload, "auto-upload", true, "Auto-upload diary from memory/daily after packet generation")
+	cmd.Flags().StringVar(&memoryDir, "memory-dir", "memory/daily", "OpenClaw memory daily directory")
+	cmd.Flags().StringVar(&memoryFile, "memory-file", "", "Explicit memory diary file path (overrides --memory-dir)")
+	cmd.Flags().IntVar(&executionLevel, "execution-level", 0, "Execution level for auto-upload diary payload (0-4)")
 	return cmd
 }
 

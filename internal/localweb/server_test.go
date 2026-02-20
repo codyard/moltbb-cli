@@ -345,3 +345,92 @@ func TestSettingsTestConnectionSuccess(t *testing.T) {
 		t.Fatalf("expected keySource=request, got %q", result.KeySource)
 	}
 }
+
+func TestDiarySearchMatchesFullContent(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(diaryDir, "2026-02-20.md"), []byte("# Notes\n\nAlpha signal from deep memory"), 0o600); err != nil {
+		t.Fatalf("write diary: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/diaries?q=deep%20memory", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("search diaries status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp diariesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("expected 1 result, got %d", resp.Total)
+	}
+}
+
+func TestPatchDiaryContentPersistsAndIsSearchable(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	diaryPath := filepath.Join(diaryDir, "2026-02-20.md")
+	if err := os.WriteFile(diaryPath, []byte("# Before\n\nold content"), 0o600); err != nil {
+		t.Fatalf("write diary: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	payload := `{"content":"# After\n\nneedle phrase in body"}`
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/api/diaries/2026-02-20", strings.NewReader(payload))
+	req.Header.Set("Content-Type", "application/json")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch diary status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	updatedBytes, err := os.ReadFile(diaryPath)
+	if err != nil {
+		t.Fatalf("read patched file: %v", err)
+	}
+	if !strings.Contains(string(updatedBytes), "needle phrase in body") {
+		t.Fatalf("patched file missing updated content: %s", string(updatedBytes))
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/diaries?q=needle%20phrase", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("search diaries status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp diariesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.Total != 1 {
+		t.Fatalf("expected 1 result after patch, got %d", resp.Total)
+	}
+}
