@@ -116,6 +116,13 @@
             <div class="calendar-board">
               <div class="calendar-weekdays" id="calendarWeekdays"></div>
               <div class="diary-history-grid" id="calendarGrid"></div>
+              <div class="calendar-day-list" id="calendarDayListWrap" hidden>
+                <div class="calendar-day-list-head">
+                  <strong id="calendarDayListTitle">-</strong>
+                  <span class="muted" id="calendarDayListSummary"></span>
+                </div>
+                <div class="calendar-day-list-items" id="calendarDayList"></div>
+              </div>
             </div>
             <aside class="calendar-reader">
               <div class="section-head calendar-reader-head">
@@ -128,10 +135,6 @@
                   <button id="btnCalendarOpenDiaries" type="button" data-i18n="calendar.openInDiaries">Open In Diaries</button>
                 </div>
               </div>
-              <label class="calendar-reader-picker">
-                <span data-i18n="calendar.diaryPicker">Diary</span>
-                <select id="calendarDiarySelect"></select>
-              </label>
               <p class="muted" id="calendarDetailMeta"></p>
               <pre id="calendarDetailContent" class="content slim">Select a date with diary entries to read here.</pre>
             </aside>

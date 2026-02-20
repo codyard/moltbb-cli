@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.26 - 2026-02-20
+
+- Improved calendar-day cell indicators:
+  - diary counts now use blue dot markers inside each day cell,
+  - high counts render compact `+N` overflow marker.
+- Improved multi-diary day browsing in calendar:
+  - when a selected day has multiple diaries, a clickable list now appears below the calendar grid,
+  - clicking a list item opens that diary in the in-calendar reader panel.
+
 ## v0.4.25 - 2026-02-20
 
 - Added diary calendar tab between Diaries and Prompts in local UI.

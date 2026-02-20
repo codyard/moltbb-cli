@@ -305,6 +305,58 @@ button:disabled {
   min-width: 0;
 }
 
+.calendar-day-list {
+  margin-top: 0.56rem;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(8, 15, 28, 0.72);
+  padding: 0.45rem 0.5rem;
+}
+
+.calendar-day-list-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+  flex-wrap: wrap;
+}
+
+#calendarDayListTitle {
+  font-size: 0.86rem;
+  color: var(--cyan);
+}
+
+.calendar-day-list-items {
+  display: grid;
+  gap: 0.34rem;
+}
+
+.calendar-day-list-item {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(7, 13, 25, 0.76);
+  color: var(--text-0);
+  font: inherit;
+  padding: 0.36rem 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.45rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.calendar-day-list-item:hover {
+  border-color: rgba(93, 228, 255, 0.52);
+}
+
+.calendar-day-list-item.active {
+  border-color: rgba(213, 255, 47, 0.6);
+  box-shadow: 0 0 0 1px rgba(213, 255, 47, 0.24) inset;
+}
+
 .legend-chip {
   font-size: 0.72rem;
   border-radius: 999px;
@@ -374,15 +426,6 @@ button:disabled {
 
 .calendar-reader-date {
   margin: 0.26rem 0 0;
-}
-
-.calendar-reader-picker {
-  margin-bottom: 0.46rem;
-}
-
-.calendar-reader-picker span {
-  display: block;
-  margin-bottom: 0.24rem;
 }
 
 #calendarDetailMeta {
@@ -461,12 +504,37 @@ button.calendar-day-cell:hover {
   color: var(--text-1);
 }
 
+.calendar-day-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 0.72rem;
+}
+
+.calendar-entry-dot {
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 999px;
+  background: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(93, 228, 255, 0.22);
+}
+
+.calendar-entry-more {
+  font-size: 0.62rem;
+  color: var(--cyan);
+  line-height: 1;
+}
+
 .calendar-day-cell.is-single .calendar-day-status {
   color: var(--cyan);
 }
 
 .calendar-day-cell.is-multi .calendar-day-status {
   color: var(--lime);
+}
+
+.calendar-day-cell.is-multi .calendar-entry-dot {
+  background: var(--cyan);
 }
 
 .calendar-default-dot {

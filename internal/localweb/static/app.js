@@ -82,7 +82,8 @@ const MESSAGES = {
     'calendar.detailHint': 'Select a date with diary entries to read here.',
     'calendar.detailEmpty': 'No diary entries found for this date.',
     'calendar.detailDate': 'Selected date: {date}',
-    'calendar.diaryPicker': 'Diary',
+    'calendar.dayListTitle': 'Diaries on {date}',
+    'calendar.dayListSummary': '{count} diaries',
     'calendar.openInDiaries': 'Open In Diaries',
     'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
     'prompt.listTitle': 'Prompt Templates',
@@ -244,7 +245,8 @@ const MESSAGES = {
     'calendar.detailHint': '点击左侧有日记的日期，即可在这里直接阅读。',
     'calendar.detailEmpty': '该日期暂无可读日记。',
     'calendar.detailDate': '已选日期：{date}',
-    'calendar.diaryPicker': '日记文件',
+    'calendar.dayListTitle': '{date} 当天日记',
+    'calendar.dayListSummary': '共 {count} 篇',
     'calendar.openInDiaries': '在日记页打开',
     'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
     'prompt.listTitle': '提示词模板',
@@ -1001,6 +1003,22 @@ function calendarWeekdayLabels() {
   ];
 }
 
+function renderCalendarEntryMarkers(count) {
+  const value = Number.isFinite(count) ? Math.max(0, count) : 0;
+  if (value <= 0) {
+    return `<span class="calendar-day-status">${escapeHtml(t('calendar.statusNone'))}</span>`;
+  }
+
+  const maxDots = 4;
+  const dots = [];
+  for (let i = 0; i < Math.min(value, maxDots); i += 1) {
+    dots.push('<span class="calendar-entry-dot" aria-hidden="true"></span>');
+  }
+  const more = value > maxDots ? `<span class="calendar-entry-more">+${value - maxDots}</span>` : '';
+  const aria = value === 1 ? t('calendar.statusSingle') : t('calendar.statusMulti', { count: value });
+  return `<span class="calendar-day-status calendar-day-dots" aria-label="${escapeHtml(aria)}">${dots.join('')}${more}</span>`;
+}
+
 function renderDiaryHistoryCalendar() {
   const monthLabel = el('calendarMonthLabel');
   const summary = el('calendarSummary');
@@ -1070,7 +1088,7 @@ function renderDiaryHistoryCalendar() {
     const defaultClass = hasDefault ? ' is-default' : '';
     const content = `
       <span class="calendar-day-num">${day}</span>
-      <span class="calendar-day-status">${escapeHtml(status)}</span>
+      ${renderCalendarEntryMarkers(count)}
       ${defaultMarker}
     `;
 
@@ -1109,6 +1127,47 @@ function buildCalendarDiaryOptionLabel(item) {
   return `${title} (${t('diary.defaultTag')})`;
 }
 
+function renderCalendarDayList() {
+  const wrap = el('calendarDayListWrap');
+  const title = el('calendarDayListTitle');
+  const summary = el('calendarDayListSummary');
+  const list = el('calendarDayList');
+  if (!wrap || !title || !summary || !list) {
+    return;
+  }
+
+  const selectedDate = String(state.calendarSelectedDate || '').trim();
+  const items = Array.isArray(state.calendarDateDiaries) ? state.calendarDateDiaries : [];
+  if (!selectedDate || items.length <= 1) {
+    wrap.hidden = true;
+    list.innerHTML = '';
+    return;
+  }
+
+  wrap.hidden = false;
+  title.textContent = t('calendar.dayListTitle', { date: selectedDate });
+  summary.textContent = t('calendar.dayListSummary', { count: items.length });
+  list.innerHTML = items
+    .map((item) => {
+      const active = item.id === state.calendarSelectedDiaryId ? ' active' : '';
+      const defaultTag = item.isDefault ? `<span class="default-tag">${escapeHtml(t('diary.defaultTag'))}</span>` : '';
+      return `
+        <button type="button" class="calendar-day-list-item${active}" data-id="${escapeHtml(item.id)}">
+          <span>${escapeHtml(buildCalendarDiaryOptionLabel(item))}</span>
+          ${defaultTag}
+        </button>
+      `;
+    })
+    .join('');
+
+  list.querySelectorAll('button.calendar-day-list-item[data-id]').forEach((node) => {
+    node.addEventListener('click', () => {
+      loadCalendarDiaryDetail(node.dataset.id || '')
+        .catch((err) => setStatusKey('diary.loadFailed', { message: err.message }, true));
+    });
+  });
+}
+
 function applyCalendarDiaryViewModeButton() {
   const button = el('btnCalendarReaderViewMode');
   if (!button) {
@@ -1127,11 +1186,10 @@ function applyCalendarDiaryViewModeButton() {
 
 function renderCalendarDiaryDetail() {
   const dateLabel = el('calendarDetailDate');
-  const selector = el('calendarDiarySelect');
   const meta = el('calendarDetailMeta');
   const content = el('calendarDetailContent');
   const openBtn = el('btnCalendarOpenDiaries');
-  if (!dateLabel || !selector || !meta || !content || !openBtn) {
+  if (!dateLabel || !meta || !content || !openBtn) {
     return;
   }
 
@@ -1143,9 +1201,8 @@ function renderCalendarDiaryDetail() {
   }
 
   const items = Array.isArray(state.calendarDateDiaries) ? state.calendarDateDiaries : [];
+  renderCalendarDayList();
   if (!items.length) {
-    selector.innerHTML = '';
-    selector.disabled = true;
     meta.textContent = '';
     content.classList.remove('markdown-view');
     content.textContent = selectedDate ? t('calendar.detailEmpty') : t('calendar.detailHint');
@@ -1153,14 +1210,6 @@ function renderCalendarDiaryDetail() {
     applyCalendarDiaryViewModeButton();
     return;
   }
-
-  selector.disabled = false;
-  selector.innerHTML = items
-    .map((item) => {
-      const selected = item.id === state.calendarSelectedDiaryId ? 'selected' : '';
-      return `<option value="${escapeHtml(item.id)}" ${selected}>${escapeHtml(buildCalendarDiaryOptionLabel(item))}</option>`;
-    })
-    .join('');
 
   const detail = state.calendarDiaryDetail;
   if (!detail) {
@@ -1822,14 +1871,6 @@ function bindEvents() {
     btnCalendarNext.addEventListener('click', () => {
       state.calendarMonth = shiftCalendarMonth(state.calendarMonth, 1);
       renderDiaryHistoryCalendar();
-    });
-  }
-
-  const calendarDiarySelect = el('calendarDiarySelect');
-  if (calendarDiarySelect) {
-    calendarDiarySelect.addEventListener('change', (event) => {
-      loadCalendarDiaryDetail(event.target.value)
-        .catch((err) => setStatusKey('diary.loadFailed', { message: err.message }, true));
     });
   }
 
