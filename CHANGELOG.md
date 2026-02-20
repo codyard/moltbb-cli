@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.31 - 2026-02-20
+
+- Refined title logo sizing in local web header:
+  - logo now uses `1em x 1em` so it stays the same height as title text,
+  - width and height remain equal and scale automatically with heading size.
+
 ## v0.4.30 - 2026-02-20
 
 - Updated local web top title branding:
