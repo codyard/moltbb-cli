@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.4.29 - 2026-02-20
+
+- Updated calendar diary-dot visual size:
+  - increased blue day-cell dots to `0.8rem` for improved visibility.
+
 ## v0.4.28 - 2026-02-20
 
 - Fixed calendar cell blue-dot visibility:
