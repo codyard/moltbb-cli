@@ -539,6 +539,7 @@ button.calendar-day-cell {
 }
 
 .calendar-entry-dot {
+  display: inline-block;
   width: 0.36rem;
   height: 0.36rem;
   border-radius: 999px;

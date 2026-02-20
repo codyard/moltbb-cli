@@ -734,6 +734,9 @@ function switchTab(name) {
   if (name === 'calendar') {
     renderDiaryHistoryCalendar();
     renderCalendarDiaryDetail();
+    ensureCalendarDefaultSelection().catch((err) => {
+      setStatusKey('diary.loadListFailed', { message: err.message }, true);
+    });
   }
 }
 
@@ -993,6 +996,22 @@ async function loadDiaryHistory() {
   }
   renderDiaryHistoryCalendar();
   renderCalendarDiaryDetail();
+}
+
+async function ensureCalendarDefaultSelection() {
+  if (state.calendarSelectedDate) {
+    return;
+  }
+  if (!Array.isArray(state.diaryHistoryItems) || !state.diaryHistoryItems.length) {
+    return;
+  }
+
+  const latestWithDate = state.diaryHistoryItems.find((item) => /^\d{4}-\d{2}-\d{2}$/.test(String(item?.date || '')));
+  if (!latestWithDate || !latestWithDate.date) {
+    return;
+  }
+
+  await selectCalendarDate(String(latestWithDate.date), String(latestWithDate.defaultDiaryId || ''), 0);
 }
 
 function calendarWeekdayLabels() {

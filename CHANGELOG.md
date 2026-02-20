@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.4.28 - 2026-02-20
+
+- Fixed calendar cell blue-dot visibility:
+  - restored visible blue diary dots in day cells after interactive marker refactor.
+- Improved calendar default reader behavior:
+  - when entering Calendar tab, UI now auto-selects the latest diary day and opens the latest diary entry by default.
+
 ## v0.4.27 - 2026-02-20
 
 - Refined calendar page layout:
