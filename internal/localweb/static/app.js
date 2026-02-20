@@ -25,6 +25,8 @@ const MESSAGES = {
     'actions.reindex': 'Reindex',
     'actions.edit': 'Edit',
     'actions.cancel': 'Cancel',
+    'actions.sync': 'Sync',
+    'actions.setDefault': 'Set Default',
     'actions.new': 'New',
     'actions.save': 'Save',
     'actions.setActive': 'Set Active',
@@ -38,7 +40,7 @@ const MESSAGES = {
     'diary.searchPlaceholder': 'Search by title / date / filename / content',
     'diary.selectHint': 'Select a diary from the left list.',
     'diary.noFiles': 'No diary files found.',
-    'diary.metaFormat': '{date} · {filename} · {modifiedAt}',
+    'diary.metaFormat': '{date} · {modifiedAt}',
     'diary.viewReading': 'Reading',
     'diary.viewRaw': 'Raw',
     'diary.loadFailed': 'Load diary failed: {message}',
@@ -46,6 +48,11 @@ const MESSAGES = {
     'diary.saveSuccess': 'Diary saved.',
     'diary.saveMissing': 'Please select a diary first.',
     'diary.saveFailed': 'Save diary failed: {message}',
+    'diary.defaultTag': 'DEFAULT',
+    'diary.setDefaultSuccess': 'Set as default diary for {date}.',
+    'diary.setDefaultFailed': 'Set default failed: {message}',
+    'diary.syncSuccess': 'Diary synced ({action}).',
+    'diary.syncFailed': 'Diary sync failed: {message}',
     'prompt.listTitle': 'Prompt Templates',
     'prompt.editorTitle': 'Prompt Editor',
     'prompt.name': 'Name',
@@ -91,6 +98,9 @@ const MESSAGES = {
     'settings.ownerConfiguredTitle': 'MoltBB Ready',
     'settings.ownerConfiguredHint': 'API key configured: {masked}',
     'settings.ownerConfiguredExtra': 'CLI GitHub project:',
+    'settings.statusApiKey': 'API Key: {value}',
+    'settings.statusBaseUrl': 'Base URL: {value}',
+    'settings.statusNotConfigured': 'Not configured',
     'settings.cloudSync': 'Enable cloud sync',
     'settings.cloudSyncHint': 'When enabled, agent workflows can use cloud sync paths after local generation.',
     'settings.apiKey': 'API Key',
@@ -145,6 +155,8 @@ const MESSAGES = {
     'actions.reindex': '重建索引',
     'actions.edit': '编辑',
     'actions.cancel': '取消',
+    'actions.sync': '同步',
+    'actions.setDefault': '设为默认',
     'actions.new': '新建',
     'actions.save': '保存',
     'actions.setActive': '设为激活',
@@ -158,7 +170,7 @@ const MESSAGES = {
     'diary.searchPlaceholder': '按标题 / 日期 / 文件名 / 内容搜索',
     'diary.selectHint': '请从左侧列表选择一篇日记。',
     'diary.noFiles': '未找到日记文件。',
-    'diary.metaFormat': '{date} · {filename} · {modifiedAt}',
+    'diary.metaFormat': '{date} · {modifiedAt}',
     'diary.viewReading': '阅读模式',
     'diary.viewRaw': '原文模式',
     'diary.loadFailed': '加载日记失败: {message}',
@@ -166,6 +178,11 @@ const MESSAGES = {
     'diary.saveSuccess': '日记已保存。',
     'diary.saveMissing': '请先选择一篇日记。',
     'diary.saveFailed': '保存日记失败: {message}',
+    'diary.defaultTag': '默认',
+    'diary.setDefaultSuccess': '已设为 {date} 当天默认日记。',
+    'diary.setDefaultFailed': '设为默认失败: {message}',
+    'diary.syncSuccess': '日记同步成功（{action}）。',
+    'diary.syncFailed': '日记同步失败: {message}',
     'prompt.listTitle': '提示词模板',
     'prompt.editorTitle': '提示词编辑器',
     'prompt.name': '名称',
@@ -211,6 +228,9 @@ const MESSAGES = {
     'settings.ownerConfiguredTitle': 'MoltBB 已就绪',
     'settings.ownerConfiguredHint': 'API Key 已配置：{masked}',
     'settings.ownerConfiguredExtra': 'CLI GitHub 项目地址：',
+    'settings.statusApiKey': 'API Key：{value}',
+    'settings.statusBaseUrl': 'Base URL：{value}',
+    'settings.statusNotConfigured': '未配置',
     'settings.cloudSync': '启用云同步',
     'settings.cloudSyncHint': '启用后，Agent 工作流可在本地生成后继续走云端同步路径。',
     'settings.apiKey': 'API Key',
@@ -256,10 +276,12 @@ const state = {
   diaryViewMode: 'raw',
   diaryEditMode: false,
   diaryDraftContent: '',
+  syncingDiaryId: null,
   currentDiaryDetail: null,
   currentPromptDetail: null,
   settings: null,
   settingsTest: null,
+  apiBaseUrl: '',
   locale: 'en',
   fontSize: 'small',
   hasGeneratedPacket: false,
@@ -544,13 +566,20 @@ function applyDiaryViewModeButton() {
 function applyDiaryEditButtons() {
   const editBtn = el('btnDiaryEdit');
   const saveBtn = el('btnDiarySave');
-  if (!editBtn || !saveBtn) {
+  const setDefaultBtn = el('btnDiarySetDefault');
+  const syncBtn = el('btnDiarySync');
+  if (!editBtn || !saveBtn || !setDefaultBtn || !syncBtn) {
     return;
   }
   editBtn.textContent = state.diaryEditMode ? t('actions.cancel') : t('actions.edit');
   const hasDiary = !!state.currentDiaryId;
+  const isDefault = !!state.currentDiaryDetail?.isDefault;
+  const hasDate = !!state.currentDiaryDetail?.date;
+  const canSync = !!state.currentDiaryDetail?.canSync && isDefault;
   editBtn.disabled = !hasDiary;
   saveBtn.disabled = !state.diaryEditMode || !hasDiary;
+  setDefaultBtn.disabled = !hasDiary || !hasDate || state.diaryEditMode || isDefault;
+  syncBtn.disabled = !hasDiary || state.diaryEditMode || !canSync || state.syncingDiaryId === state.currentDiaryId;
 }
 
 function renderDiaryContent() {
@@ -585,16 +614,23 @@ function renderDiaryContent() {
 }
 
 function renderDiaryMeta() {
+  const metaPrimary = el('diaryMetaPrimary');
+  const metaFilename = el('diaryMetaFilename');
+  if (!metaPrimary || !metaFilename) {
+    return;
+  }
+
   if (!state.currentDiaryDetail) {
-    el('diaryMeta').textContent = '';
+    metaPrimary.textContent = '';
+    metaFilename.textContent = '';
     return;
   }
   const detail = state.currentDiaryDetail;
-  el('diaryMeta').textContent = t('diary.metaFormat', {
+  metaPrimary.textContent = t('diary.metaFormat', {
     date: detail.date || t('common.na'),
-    filename: detail.filename || '',
     modifiedAt: detail.modifiedAt || '',
   });
+  metaFilename.textContent = detail.filename || '';
 }
 
 function setDiaryEmptyState() {
@@ -622,6 +658,7 @@ async function loadState() {
   el('statActive').textContent = data.activePrompt || '-';
   el('cliVersion').textContent = data.version || '-';
   state.activePromptId = data.activePrompt || '';
+  state.apiBaseUrl = data.apiBaseUrl || '';
   if (!el('genOutput').value) {
     el('genOutput').value = data.defaultOutput || '';
   }
@@ -649,8 +686,21 @@ function renderSettings() {
   const onboardingHint = el('ownerOnboardingHint');
   const onboardingExtra = el('ownerOnboardingExtra');
   const onboardingRepo = el('ownerOnboardingRepo');
+  const onboardingApiKey = el('ownerOnboardingApiKey');
+  const onboardingBaseUrl = el('ownerOnboardingBaseUrl');
   if (!cloudSwitch || !apiKeyStatus || !meta) {
     return;
+  }
+
+  const rightApiKeyValue = state.settings?.apiKeyConfigured
+    ? (state.settings.apiKeyMasked || '')
+    : t('settings.statusNotConfigured');
+  const rightBaseURLValue = state.apiBaseUrl || t('settings.statusNotConfigured');
+  if (onboardingApiKey) {
+    onboardingApiKey.textContent = t('settings.statusApiKey', { value: rightApiKeyValue });
+  }
+  if (onboardingBaseUrl) {
+    onboardingBaseUrl.textContent = t('settings.statusBaseUrl', { value: rightBaseURLValue });
   }
 
   if (!state.settings) {
@@ -781,13 +831,21 @@ function renderDiaryList(items) {
     .map((item) => {
       const active = item.id === state.currentDiaryId ? 'active' : '';
       const calendar = renderDiaryCalendar(item.date || '');
+      const defaultTag = item.isDefault ? `<span class="default-tag">${escapeHtml(t('diary.defaultTag'))}</span>` : '';
+      const showSync = !!item.isDefault && !!item.canSync;
+      const syncButton = showSync
+        ? `<button type="button" class="mini-btn diary-sync-btn" data-id="${escapeHtml(item.id)}" data-action="sync">${escapeHtml(t('actions.sync'))}</button>`
+        : '';
       return `
         <article class="item diary-item ${active}" data-id="${escapeHtml(item.id)}">
           <div class="diary-item-head">
             ${calendar}
             <div class="diary-item-main">
-              <h3>${escapeHtml(item.title || item.filename)}</h3>
-              <div class="meta">${escapeHtml(item.date || t('common.na'))} · ${escapeHtml(item.filename)}</div>
+              <div class="diary-item-row">
+                <h3>${escapeHtml(item.title || item.filename)}</h3>
+                ${syncButton}
+              </div>
+              <div class="meta">${escapeHtml(item.date || t('common.na'))} · ${escapeHtml(item.filename)} ${defaultTag}</div>
               <p class="item-preview">${escapeHtml(item.preview || '')}</p>
             </div>
           </div>
@@ -798,6 +856,12 @@ function renderDiaryList(items) {
 
   container.querySelectorAll('.item').forEach((node) => {
     node.addEventListener('click', () => loadDiaryDetail(node.dataset.id));
+  });
+  container.querySelectorAll('[data-action="sync"]').forEach((node) => {
+    node.addEventListener('click', (event) => {
+      event.stopPropagation();
+      syncDiary(node.dataset.id, false).catch((err) => setStatusKey('diary.syncFailed', { message: err.message }, true));
+    });
   });
 }
 
@@ -871,6 +935,43 @@ async function saveDiaryContent() {
   state.diaryEditMode = false;
   await loadDiaries();
   setStatusKey('diary.saveSuccess');
+}
+
+async function setDiaryDefault() {
+  if (!state.currentDiaryId) {
+    setStatusKey('diary.saveMissing', {}, true);
+    return;
+  }
+  const data = await api(`/diaries/${encodeURIComponent(state.currentDiaryId)}/set-default`, {
+    method: 'POST',
+  });
+  state.currentDiaryDetail = data;
+  await loadDiaries();
+  setStatusKey('diary.setDefaultSuccess', { date: data.date || '' });
+}
+
+async function syncDiary(id = state.currentDiaryId, refreshDetail = true) {
+  if (!id) {
+    setStatusKey('diary.saveMissing', {}, true);
+    return;
+  }
+  state.syncingDiaryId = id;
+  renderDiaryList(state.diaries);
+  applyDiaryEditButtons();
+  try {
+    const data = await api(`/diaries/${encodeURIComponent(id)}/sync`, {
+      method: 'POST',
+    });
+    setStatusKey('diary.syncSuccess', { action: data.action || 'SYNC' });
+    await loadDiaries();
+    if (refreshDetail && state.currentDiaryId) {
+      await loadDiaryDetail(state.currentDiaryId, false);
+    }
+  } finally {
+    state.syncingDiaryId = null;
+    renderDiaryList(state.diaries);
+    applyDiaryEditButtons();
+  }
 }
 
 function promptMarker(item) {
@@ -1291,6 +1392,14 @@ function bindEvents() {
 
   el('btnDiarySave').addEventListener('click', () => {
     saveDiaryContent().catch((err) => setStatusKey('diary.saveFailed', { message: err.message }, true));
+  });
+
+  el('btnDiarySetDefault').addEventListener('click', () => {
+    setDiaryDefault().catch((err) => setStatusKey('diary.setDefaultFailed', { message: err.message }, true));
+  });
+
+  el('btnDiarySync').addEventListener('click', () => {
+    syncDiary().catch((err) => setStatusKey('diary.syncFailed', { message: err.message }, true));
   });
 
   el('diaryEditor').addEventListener('input', (event) => {

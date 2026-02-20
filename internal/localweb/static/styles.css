@@ -144,7 +144,7 @@ h2 {
 .topbar-controls {
   display: flex;
   align-items: center;
-  gap: 0.52rem;
+  gap: 0.8rem;
   flex-wrap: wrap;
   justify-content: flex-end;
 }
@@ -241,7 +241,7 @@ button:disabled {
 }
 
 .two-col {
-  grid-template-columns: 0.8fr 1.2fr;
+  grid-template-columns: 1fr 2fr;
 }
 
 .card {
@@ -259,12 +259,24 @@ button:disabled {
 
 .inline-actions {
   display: inline-flex;
-  align-items: center;
+  align-items: flex-start;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .inline-actions .muted {
-  white-space: nowrap;
+  white-space: normal;
+}
+
+.diary-meta-block {
+  display: grid;
+  gap: 0.12rem;
+  margin-right: 0.25rem;
+  min-width: 220px;
+}
+
+#diaryMetaFilename {
+  word-break: break-all;
 }
 
 .search-row {
@@ -345,10 +357,46 @@ textarea {
   flex: 1;
 }
 
+.diary-item .diary-item-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.diary-item .diary-item-row h3 {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .diary-item .item-preview {
   margin: 0.38rem 0 0;
   color: var(--text-1);
   font-size: 0.84rem;
+}
+
+.mini-btn {
+  border: 1px solid rgba(93, 228, 255, 0.48);
+  color: var(--cyan);
+  background: rgba(6, 12, 24, 0.9);
+  border-radius: 8px;
+  padding: 0.2rem 0.44rem;
+  font-size: 0.7rem;
+  line-height: 1.1;
+  flex: 0 0 auto;
+}
+
+.default-tag {
+  display: inline-flex;
+  margin-left: 0.42rem;
+  border: 1px solid rgba(213, 255, 47, 0.5);
+  border-radius: 999px;
+  padding: 0.02rem 0.36rem;
+  color: var(--lime);
+  font-size: 0.66rem;
+  line-height: 1.2;
 }
 
 .calendar-chip {
@@ -436,6 +484,14 @@ textarea {
   color: var(--cyan);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+.owner-meta {
+  margin-left: auto;
+  text-align: right;
+  min-width: 260px;
+  font-size: 0.78rem;
+  line-height: 1.45;
 }
 
 .content {
@@ -621,5 +677,11 @@ button.danger {
 
   .owner-logo {
     width: auto;
+  }
+
+  .owner-meta {
+    margin-left: 0;
+    text-align: left;
+    min-width: 0;
   }
 }

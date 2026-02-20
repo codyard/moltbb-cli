@@ -69,10 +69,15 @@
             <div class="section-head">
               <h2 data-i18n="diary.detailTitle">Diary Detail</h2>
               <div class="inline-actions">
-                <span id="diaryMeta" class="muted"></span>
+                <div id="diaryMeta" class="muted diary-meta-block">
+                  <span id="diaryMetaPrimary"></span>
+                  <span id="diaryMetaFilename"></span>
+                </div>
                 <button id="btnDiaryViewMode" type="button">Reading</button>
                 <button id="btnDiaryEdit" type="button" data-i18n="actions.edit">Edit</button>
                 <button id="btnDiarySave" type="button" data-i18n="actions.save">Save</button>
+                <button id="btnDiarySetDefault" type="button" data-i18n="actions.setDefault">Set Default</button>
+                <button id="btnDiarySync" type="button" data-i18n="actions.sync">Sync</button>
               </div>
             </div>
             <pre id="diaryContent" class="content">Select a diary from the left list.</pre>
@@ -174,6 +179,10 @@
               <p class="muted" id="ownerOnboardingRepo" hidden>
                 <a href="https://github.com/codyard/moltbb-cli" target="_blank" rel="noopener noreferrer">https://github.com/codyard/moltbb-cli</a>
               </p>
+            </div>
+            <div class="owner-meta muted" id="ownerOnboardingMeta">
+              <div id="ownerOnboardingApiKey">API Key: n/a</div>
+              <div id="ownerOnboardingBaseUrl">Base URL: n/a</div>
             </div>
           </div>
           <form id="settingsForm" class="form-stack">

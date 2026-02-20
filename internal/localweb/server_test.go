@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -432,5 +433,96 @@ func TestPatchDiaryContentPersistsAndIsSearchable(t *testing.T) {
 	}
 	if resp.Total != 1 {
 		t.Fatalf("expected 1 result after patch, got %d", resp.Total)
+	}
+}
+
+func TestDiaryDefaultSelectionAndSetDefault(t *testing.T) {
+	t.Parallel()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+
+	aPath := filepath.Join(diaryDir, "2026-02-20-a.md")
+	bPath := filepath.Join(diaryDir, "2026-02-20-b.md")
+	if err := os.WriteFile(aPath, []byte("# A\n\n- Date: 2026-02-20"), 0o600); err != nil {
+		t.Fatalf("write diary a: %v", err)
+	}
+	if err := os.WriteFile(bPath, []byte("# B\n\n- Date: 2026-02-20"), 0o600); err != nil {
+		t.Fatalf("write diary b: %v", err)
+	}
+
+	oldTime := time.Date(2026, 2, 20, 1, 0, 0, 0, time.UTC)
+	newTime := time.Date(2026, 2, 20, 2, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(aPath, oldTime, oldTime); err != nil {
+		t.Fatalf("set diary a mtime: %v", err)
+	}
+	if err := os.Chtimes(bPath, newTime, newTime); err != nil {
+		t.Fatalf("set diary b mtime: %v", err)
+	}
+
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/diaries?limit=10", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list diaries status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	var resp diariesResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode diaries response: %v", err)
+	}
+	if len(resp.Items) != 2 {
+		t.Fatalf("expected 2 diaries, got %d", len(resp.Items))
+	}
+	if resp.Items[0].ID != "2026-02-20-b" {
+		t.Fatalf("expected latest diary first, got %s", resp.Items[0].ID)
+	}
+	if !resp.Items[0].IsDefault {
+		t.Fatal("expected latest diary to be default")
+	}
+	if resp.Items[1].IsDefault {
+		t.Fatal("expected older diary not default before manual set")
+	}
+
+	targetID := resp.Items[1].ID
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/diaries/"+url.PathEscape(targetID)+"/set-default", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("set-default status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/diaries?limit=10", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list diaries after set-default status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode diaries response after set-default: %v", err)
+	}
+
+	defaultCount := 0
+	for _, item := range resp.Items {
+		if item.IsDefault {
+			defaultCount++
+			if item.ID != targetID {
+				t.Fatalf("expected %s as default, got %s", targetID, item.ID)
+			}
+		}
+	}
+	if defaultCount != 1 {
+		t.Fatalf("expected exactly one default diary, got %d", defaultCount)
 	}
 }

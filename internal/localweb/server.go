@@ -62,6 +62,8 @@ type diarySummary struct {
 	RelPath    string `json:"relPath"`
 	Size       int64  `json:"size"`
 	ModifiedAt string `json:"modifiedAt"`
+	IsDefault  bool   `json:"isDefault"`
+	CanSync    bool   `json:"canSync"`
 	SearchText string `json:"-"`
 }
 
@@ -135,6 +137,18 @@ type generatePacketResponse struct {
 
 type diaryUpdateRequest struct {
 	Content *string `json:"content"`
+}
+
+type diarySyncResponse struct {
+	Success    bool   `json:"success"`
+	DiaryID    string `json:"diaryId,omitempty"`
+	Action     string `json:"action"`
+	StatusCode int    `json:"statusCode"`
+}
+
+type dayDefaultRecord struct {
+	DiaryID  string
+	IsManual bool
 }
 
 type promptCreateRequest struct {
@@ -410,15 +424,61 @@ func (s *Server) handleDiaries(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleDiaryByID(w http.ResponseWriter, r *http.Request) {
-	id := strings.TrimPrefix(r.URL.Path, "/api/diaries/")
-	id = strings.TrimSpace(id)
+	path := strings.TrimPrefix(r.URL.Path, "/api/diaries/")
+	path = strings.Trim(path, "/")
+	if path == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "diary id is required"})
+		return
+	}
+
+	parts := strings.Split(path, "/")
+	id := strings.TrimSpace(parts[0])
 	if id == "" {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "diary id is required"})
 		return
 	}
-	decoded, err := url.PathUnescape(id)
-	if err == nil {
+	decoded, decodeErr := url.PathUnescape(id)
+	if decodeErr == nil {
 		id = decoded
+	}
+
+	if len(parts) == 2 && parts[1] == "set-default" {
+		if !allowMethod(w, r, http.MethodPost) {
+			return
+		}
+		detail, found, err := s.setDiaryAsDefault(id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if !found {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "diary not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, detail)
+		return
+	}
+
+	if len(parts) == 2 && parts[1] == "sync" {
+		if !allowMethod(w, r, http.MethodPost) {
+			return
+		}
+		result, found, err := s.syncDiaryByID(id)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if !found {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "diary not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+		return
+	}
+
+	if len(parts) > 1 {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "route not found"})
+		return
 	}
 
 	switch r.Method {
@@ -877,6 +937,10 @@ func (s *Server) loadDiaryDetail(id string) (diaryDetail, bool, error) {
 		return diaryDetail{}, false, fmt.Errorf("read diary file: %w", err)
 	}
 
+	if err := s.enrichDiaryItems([]*diarySummary{&item}); err != nil {
+		return diaryDetail{}, false, err
+	}
+
 	return diaryDetail{diarySummary: item, Content: string(data)}, true, nil
 }
 
@@ -917,10 +981,14 @@ WHERE id = ?
 		return diaryDetail{}, false, fmt.Errorf("update diary index row: %w", err)
 	}
 
-	return diaryDetail{
-		diarySummary: updated,
-		Content:      content,
-	}, true, nil
+	if err := s.reconcileDayDefaults(); err != nil {
+		return diaryDetail{}, false, err
+	}
+	if err := s.enrichDiaryItems([]*diarySummary{&updated}); err != nil {
+		return diaryDetail{}, false, err
+	}
+
+	return diaryDetail{diarySummary: updated, Content: content}, true, nil
 }
 
 func (s *Server) listDiaries(q string, limit, offset int) ([]diarySummary, int, error) {
@@ -961,6 +1029,14 @@ LIMIT ? OFFSET ?`
 	}
 	if err := rows.Err(); err != nil {
 		return nil, 0, fmt.Errorf("read diaries rows: %w", err)
+	}
+
+	ptrs := make([]*diarySummary, 0, len(items))
+	for i := range items {
+		ptrs = append(ptrs, &items[i])
+	}
+	if err := s.enrichDiaryItems(ptrs); err != nil {
+		return nil, 0, err
 	}
 
 	return items, total, nil
@@ -1029,6 +1105,9 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("commit reindex tx: %w", err)
+	}
+	if err := s.reconcileDayDefaults(); err != nil {
+		return 0, err
 	}
 	return len(items), nil
 }
@@ -1100,6 +1179,255 @@ func (s *Server) scanDiaryFiles() ([]diarySummary, error) {
 	})
 
 	return items, nil
+}
+
+func (s *Server) setDiaryAsDefault(id string) (diaryDetail, bool, error) {
+	item, found, err := s.getDiaryByID(id)
+	if err != nil {
+		return diaryDetail{}, false, err
+	}
+	if !found {
+		return diaryDetail{}, false, nil
+	}
+	if strings.TrimSpace(item.Date) == "" {
+		return diaryDetail{}, true, errors.New("diary date is empty, cannot set default")
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	_, err = s.db.Exec(`
+INSERT INTO diary_day_defaults(diary_date, diary_id, is_manual, updated_at)
+VALUES(?, ?, 1, ?)
+ON CONFLICT(diary_date) DO UPDATE SET diary_id = excluded.diary_id, is_manual = excluded.is_manual, updated_at = excluded.updated_at
+`, item.Date, item.ID, now)
+	if err != nil {
+		return diaryDetail{}, true, fmt.Errorf("set day default diary: %w", err)
+	}
+
+	return s.loadDiaryDetail(id)
+}
+
+func (s *Server) syncDiaryByID(id string) (diarySyncResponse, bool, error) {
+	detail, found, err := s.loadDiaryDetail(id)
+	if err != nil {
+		return diarySyncResponse{}, false, err
+	}
+	if !found {
+		return diarySyncResponse{}, false, nil
+	}
+	if strings.TrimSpace(detail.Date) == "" {
+		return diarySyncResponse{}, true, errors.New("diary date is required for sync")
+	}
+	if !detail.IsDefault {
+		return diarySyncResponse{}, true, errors.New("only default diary of the day can be synced")
+	}
+	if !detail.CanSync {
+		return diarySyncResponse{}, true, errors.New("cloud sync is disabled or api key is not configured")
+	}
+
+	filePath := filepath.Join(s.diaryDir, detail.RelPath)
+	payload, err := diary.BuildRuntimeUpsertPayload(filePath, detail.Date, 0, time.Now().UTC())
+	if err != nil {
+		return diarySyncResponse{}, true, err
+	}
+
+	apiKey, err := auth.ResolveAPIKey()
+	if err != nil {
+		return diarySyncResponse{}, true, fmt.Errorf("resolve api key: %w", err)
+	}
+
+	cfg := config.Default()
+	base := strings.TrimSpace(s.apiBaseURL)
+	if base == "" {
+		base = config.DefaultAPIBaseURL
+	}
+	cfg.APIBaseURL = base
+	if strings.HasPrefix(base, "http://") {
+		cfg.AllowInsecureHTTP = true
+	}
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		return diarySyncResponse{}, true, err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+	defer cancel()
+	result, err := client.UpsertRuntimeDiary(ctx, apiKey, api.RuntimeDiaryUpsertPayload{
+		Summary:        payload.Summary,
+		PersonaText:    payload.PersonaText,
+		ExecutionLevel: payload.ExecutionLevel,
+		DiaryDate:      payload.DiaryDate,
+	})
+	if err != nil {
+		return diarySyncResponse{}, true, err
+	}
+
+	return diarySyncResponse{
+		Success:    true,
+		DiaryID:    result.DiaryID,
+		Action:     result.Action,
+		StatusCode: result.StatusCode,
+	}, true, nil
+}
+
+func (s *Server) reconcileDayDefaults() error {
+	rows, err := s.db.Query(`
+SELECT id, date
+FROM diary_entries
+WHERE date <> ''
+ORDER BY date ASC, modified_at DESC
+`)
+	if err != nil {
+		return fmt.Errorf("query diary entries for day defaults: %w", err)
+	}
+	defer rows.Close()
+
+	dayItems := make(map[string][]string)
+	daySet := make(map[string]map[string]struct{})
+	for rows.Next() {
+		var id, date string
+		if err := rows.Scan(&id, &date); err != nil {
+			return fmt.Errorf("scan diary entry for day defaults: %w", err)
+		}
+		if strings.TrimSpace(date) == "" {
+			continue
+		}
+		dayItems[date] = append(dayItems[date], id)
+		set, ok := daySet[date]
+		if !ok {
+			set = make(map[string]struct{})
+			daySet[date] = set
+		}
+		set[id] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("read diary entries for day defaults: %w", err)
+	}
+
+	existing, err := s.loadDayDefaultRecords()
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("begin day defaults reconcile tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	for date, rec := range existing {
+		ids, ok := daySet[date]
+		if !ok {
+			if _, err := tx.Exec(`DELETE FROM diary_day_defaults WHERE diary_date = ?`, date); err != nil {
+				return fmt.Errorf("delete stale day default: %w", err)
+			}
+			continue
+		}
+		if _, ok := ids[rec.DiaryID]; !ok {
+			// stale pointer, will be reset by upsert below.
+		}
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	for date, ids := range dayItems {
+		selectedID := ""
+		isManual := 0
+		if rec, ok := existing[date]; ok {
+			if rec.IsManual {
+				if _, exists := daySet[date][rec.DiaryID]; exists {
+					selectedID = rec.DiaryID
+					isManual = 1
+				}
+			}
+		}
+		if selectedID == "" && len(ids) > 0 {
+			// ids are already sorted by modified_at desc within same day.
+			selectedID = ids[0]
+			isManual = 0
+		}
+		if selectedID == "" {
+			continue
+		}
+		if _, err := tx.Exec(`
+INSERT INTO diary_day_defaults(diary_date, diary_id, is_manual, updated_at)
+VALUES(?, ?, ?, ?)
+ON CONFLICT(diary_date) DO UPDATE SET diary_id = excluded.diary_id, is_manual = excluded.is_manual, updated_at = excluded.updated_at
+`, date, selectedID, isManual, now); err != nil {
+			return fmt.Errorf("upsert day default: %w", err)
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit day defaults reconcile tx: %w", err)
+	}
+	return nil
+}
+
+func (s *Server) loadDayDefaultRecords() (map[string]dayDefaultRecord, error) {
+	rows, err := s.db.Query(`SELECT diary_date, diary_id, is_manual FROM diary_day_defaults`)
+	if err != nil {
+		return nil, fmt.Errorf("query day defaults: %w", err)
+	}
+	defer rows.Close()
+
+	out := make(map[string]dayDefaultRecord)
+	for rows.Next() {
+		var (
+			date     string
+			diaryID  string
+			isManual int
+		)
+		if err := rows.Scan(&date, &diaryID, &isManual); err != nil {
+			return nil, fmt.Errorf("scan day default row: %w", err)
+		}
+		out[date] = dayDefaultRecord{
+			DiaryID:  diaryID,
+			IsManual: isManual == 1,
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("read day default rows: %w", err)
+	}
+	return out, nil
+}
+
+func (s *Server) enrichDiaryItems(items []*diarySummary) error {
+	if len(items) == 0 {
+		return nil
+	}
+	if err := s.reconcileDayDefaults(); err != nil {
+		return err
+	}
+	dayDefaults, err := s.loadDayDefaultRecords()
+	if err != nil {
+		return err
+	}
+
+	cloudSyncEnabled, err := s.getCloudSyncEnabled()
+	if err != nil {
+		return err
+	}
+	apiKeyConfigured, _, _, err := s.resolveAPIKeyState()
+	if err != nil {
+		return err
+	}
+	canSync := cloudSyncEnabled && apiKeyConfigured
+
+	for _, item := range items {
+		if item == nil {
+			continue
+		}
+		item.IsDefault = false
+		item.CanSync = false
+		date := strings.TrimSpace(item.Date)
+		if date == "" {
+			continue
+		}
+		if rec, ok := dayDefaults[date]; ok && strings.TrimSpace(rec.DiaryID) == item.ID {
+			item.IsDefault = true
+			item.CanSync = canSync
+		}
+	}
+	return nil
 }
 
 func loadDefaultPromptTemplate() string {

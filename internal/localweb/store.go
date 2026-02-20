@@ -51,9 +51,17 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS diary_day_defaults (
+  diary_date TEXT PRIMARY KEY,
+  diary_id TEXT NOT NULL,
+  is_manual INTEGER NOT NULL DEFAULT 0 CHECK (is_manual IN (0,1)),
+  updated_at TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_diary_entries_date ON diary_entries(date);
 CREATE INDEX IF NOT EXISTS idx_diary_entries_modified_at ON diary_entries(modified_at);
 CREATE INDEX IF NOT EXISTS idx_diary_entries_content_text ON diary_entries(content_text);
+CREATE INDEX IF NOT EXISTS idx_diary_day_defaults_diary_id ON diary_day_defaults(diary_id);
 `
 
 var promptIDRe = regexp.MustCompile(`[^a-z0-9-]+`)
@@ -129,8 +137,28 @@ func OpenDB(dbPath string) (*sql.DB, error) {
 		_ = db.Close()
 		return nil, err
 	}
+	if err := ensureDiaryDayDefaultsSchema(db); err != nil {
+		_ = db.Close()
+		return nil, err
+	}
 
 	return db, nil
+}
+
+func ensureDiaryDayDefaultsSchema(db *sql.DB) error {
+	if _, err := db.Exec(`
+CREATE TABLE IF NOT EXISTS diary_day_defaults (
+  diary_date TEXT PRIMARY KEY,
+  diary_id TEXT NOT NULL,
+  is_manual INTEGER NOT NULL DEFAULT 0 CHECK (is_manual IN (0,1)),
+  updated_at TEXT NOT NULL
+)`); err != nil {
+		return fmt.Errorf("create diary_day_defaults table: %w", err)
+	}
+	if _, err := db.Exec(`CREATE INDEX IF NOT EXISTS idx_diary_day_defaults_diary_id ON diary_day_defaults(diary_id)`); err != nil {
+		return fmt.Errorf("create diary_day_defaults index: %w", err)
+	}
+	return nil
 }
 
 func ensureDiaryEntriesSchema(db *sql.DB) error {

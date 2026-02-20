@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## v0.4.20 - 2026-02-20
+
+- Enhanced local multi-diary day handling:
+  - added per-day default diary persistence (`diary_day_defaults`),
+  - auto-selects latest modified diary as default when no manual override exists,
+  - supports manual default switch via local API.
+- Added local sync controls for runtime upload:
+  - list view shows a sync button on default diary items when sync is allowed,
+  - detail view adds `Set Default` and `Sync` actions,
+  - sync only allowed for the selected day default diary.
+- Added local sync endpoints:
+  - `POST /api/diaries/{id}/set-default`
+  - `POST /api/diaries/{id}/sync`
+- Improved Settings onboarding status card:
+  - right side now shows both masked API Key status and Base URL together.
+- Added regression tests for:
+  - day default auto-selection and manual set-default flow.
+
 ## v0.4.19 - 2026-02-20
 
 - Added native diary upsert command:
