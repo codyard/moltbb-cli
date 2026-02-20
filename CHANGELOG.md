@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.30 - 2026-02-20
+
+- Updated local web top title branding:
+  - added `pure-logo.png` to the left of title text with `10px` spacing.
+- Added static asset support for pure logo in local web server:
+  - serves `/pure-logo.png` directly,
+  - supports prefixed path rewrite for `/moltbb-local/pure-logo.png`.
+- Added regression coverage for prefixed pure-logo static route.
+
 ## v0.4.29 - 2026-02-20
 
 - Updated calendar diary-dot visual size:

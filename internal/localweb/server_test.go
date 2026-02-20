@@ -165,6 +165,16 @@ func TestPrefixedReverseProxyPaths(t *testing.T) {
 	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "image/png") {
 		t.Fatalf("expected png content-type, got %q", ct)
 	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/moltbb-local/pure-logo.png", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("prefixed pure-logo.png status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "image/png") {
+		t.Fatalf("expected pure-logo png content-type, got %q", ct)
+	}
 }
 
 func TestDiariesOrderedByDiaryDateDesc(t *testing.T) {
