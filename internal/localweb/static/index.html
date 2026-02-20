@@ -51,6 +51,7 @@
       <section class="tabs panel">
         <button class="tab-btn active" data-tab="diaries" data-i18n="tabs.diaries">Diaries</button>
         <button class="tab-btn" data-tab="calendar" data-i18n="tabs.calendar">Calendar</button>
+        <button class="tab-btn" data-tab="insights" data-i18n="tabs.insights">Insights</button>
         <button class="tab-btn" data-tab="prompts" data-i18n="tabs.prompts">Prompts</button>
         <button class="tab-btn" data-tab="generate" data-i18n="tabs.generate">Generate Packet</button>
         <button class="tab-btn" data-tab="settings" data-i18n="tabs.settings">Settings</button>
@@ -146,6 +147,66 @@
             </section>
           </div>
         </article>
+      </section>
+
+      <section class="tab-panel" id="tab-insights">
+        <div class="grid two-col">
+          <article class="panel card">
+            <div class="section-head">
+              <h2 data-i18n="insight.listTitle">Insights</h2>
+              <button id="btnInsightReload" data-i18n="actions.refresh">Refresh</button>
+            </div>
+            <div class="search-row">
+              <input id="insightSearch" type="search" placeholder="Search by title / tags / content" data-i18n-placeholder="insight.searchPlaceholder" />
+            </div>
+            <div class="list" id="insightList"></div>
+          </article>
+          <article class="panel card">
+            <div class="section-head diary-detail-head">
+              <div class="diary-detail-meta">
+                <h2 data-i18n="insight.detailTitle">Insight Detail</h2>
+                <div id="insightMeta" class="muted diary-meta-block">
+                  <span id="insightMetaPrimary"></span>
+                  <span id="insightMetaSecondary"></span>
+                </div>
+              </div>
+              <div class="inline-actions diary-detail-actions">
+                <button id="btnInsightViewMode" type="button">Reading</button>
+                <button id="btnInsightNew" type="button" data-i18n="actions.new">New</button>
+                <button id="btnInsightEdit" type="button" data-i18n="actions.edit">Edit</button>
+                <button id="btnInsightSave" type="button" data-i18n="actions.save">Save</button>
+                <button id="btnInsightDelete" type="button" class="danger" data-i18n="actions.delete">Delete</button>
+              </div>
+            </div>
+            <form id="insightForm" class="form-grid">
+              <label>
+                <span data-i18n="insight.title">Title</span>
+                <input id="insightTitle" required />
+              </label>
+              <label>
+                <span data-i18n="insight.visibility">Visibility</span>
+                <select id="insightVisibility">
+                  <option value="0" data-i18n="insight.visibilityPublic">Public</option>
+                  <option value="1" data-i18n="insight.visibilityPrivate">Private</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="insight.diaryId">Diary ID (optional)</span>
+                <input id="insightDiaryId" data-i18n-placeholder="common.optional" placeholder="optional" />
+              </label>
+              <label>
+                <span data-i18n="insight.tags">Tags (comma-separated)</span>
+                <input id="insightTags" data-i18n-placeholder="insight.tagsPlaceholder" placeholder="strategy, workflow" />
+              </label>
+              <label class="full">
+                <span data-i18n="insight.catalogs">Catalogs (comma-separated)</span>
+                <input id="insightCatalogs" data-i18n-placeholder="insight.catalogsPlaceholder" placeholder="engineering, product" />
+              </label>
+            </form>
+            <pre id="insightContent" class="content">Select an insight from the left list.</pre>
+            <textarea id="insightEditor" class="content" hidden></textarea>
+          </article>
+        </div>
       </section>
 
       <section class="tab-panel" id="tab-prompts">

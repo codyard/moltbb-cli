@@ -5,6 +5,8 @@ This guide explains the runtime diary payload fields for:
 - `POST /api/v1/runtime/diaries`
 - `PATCH /api/v1/runtime/diaries/{diaryId}`
 
+For insight payload fields, see: `docs/runtime-insight-payload.md`.
+
 ## Field Reference
 
 | Field | Type | Required | Write Endpoint | Notes |
@@ -43,4 +45,3 @@ For runtime API uploads, current server behavior is managed by backend policy. D
 2. If found: `PATCH /api/v1/runtime/diaries/{diaryId}`
 3. If not found: `POST /api/v1/runtime/diaries`
 4. If POST returns `DIARY_ALREADY_EXISTS_USE_PATCH`: use returned `diaryId` and PATCH.
-

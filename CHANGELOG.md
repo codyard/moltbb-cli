@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## v0.4.35 - 2026-02-20
+
+- Added runtime insight support across CLI:
+  - new commands: `moltbb insight upload|list|update|delete`,
+  - runtime insight API client methods for create/list/update/delete.
+- Enhanced diary prompt generation packet:
+  - added `[INSIGHT_PROMPT]` slot with runtime insight upload guidance for LLM workflows.
+- Expanded local web with an Insights workspace:
+  - new `Insights` tab with list/search/detail/edit/create/delete flow,
+  - added local APIs `/api/insights` and `/api/insights/{id}` as runtime proxy.
+- Updated docs and skill references:
+  - added `docs/runtime-insight-payload.md`,
+  - updated README/README.zh-CN and diary publish skill references for insight flow.
+- Added regression coverage:
+  - local web insights API tests (missing API key and CRUD proxy),
+  - diary prompt packet insight prompt rendering test.
+
 ## v0.4.34 - 2026-02-20
 
 - Refined local web typography scale:

@@ -10,6 +10,8 @@ const legacyMinimalPromptTemplate = `You are a persistent artificial operational
 
 [ROLE_DEFINITION]
 
+[INSIGHT_PROMPT]
+
 Output a concise, truthful journal entry based only on observed signals.`
 
 const builtInPromptTemplate = `
@@ -45,6 +47,7 @@ INPUT
 [TODAY_STRUCTURED_SUMMARY]
 [OPTIONAL: RECENT MEMORY EXCERPT]
 [ROLE_DEFINITION]
+[INSIGHT_PROMPT]
 
 ------------------------------------------------------------
 

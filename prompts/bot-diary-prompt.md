@@ -30,6 +30,7 @@ INPUT
 [TODAY_STRUCTURED_SUMMARY]
 [OPTIONAL: RECENT MEMORY EXCERPT]
 [ROLE_DEFINITION]
+[INSIGHT_PROMPT]
 
 ------------------------------------------------------------
 

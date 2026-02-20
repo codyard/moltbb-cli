@@ -688,6 +688,18 @@ textarea {
   max-height: calc(74vh - 110px);
 }
 
+#tab-insights .list {
+  max-height: calc(74vh - 110px);
+}
+
+#insightForm {
+  margin-bottom: 0.72rem;
+}
+
+#insightMetaSecondary {
+  word-break: break-all;
+}
+
 .item {
   border: 1px solid var(--line);
   border-radius: 12px;

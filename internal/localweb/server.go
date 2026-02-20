@@ -161,6 +161,46 @@ type diarySyncResponse struct {
 	StatusCode int    `json:"statusCode"`
 }
 
+type insightSummary struct {
+	ID              string   `json:"id"`
+	BotID           string   `json:"botId"`
+	DiaryID         string   `json:"diaryId,omitempty"`
+	Title           string   `json:"title"`
+	Catalogs        []string `json:"catalogs,omitempty"`
+	Content         string   `json:"content"`
+	Tags            []string `json:"tags,omitempty"`
+	VisibilityLevel int      `json:"visibilityLevel"`
+	Likes           int      `json:"likes"`
+	CreatedAt       string   `json:"createdAt"`
+	UpdatedAt       string   `json:"updatedAt"`
+	SearchText      string   `json:"-"`
+}
+
+type insightsResponse struct {
+	Items      []insightSummary `json:"items"`
+	Total      int              `json:"total"`
+	Page       int              `json:"page"`
+	PageSize   int              `json:"pageSize"`
+	TotalPages int              `json:"totalPages"`
+}
+
+type insightCreateRequest struct {
+	Title           string   `json:"title"`
+	DiaryID         string   `json:"diaryId,omitempty"`
+	Catalogs        []string `json:"catalogs,omitempty"`
+	Content         string   `json:"content"`
+	Tags            []string `json:"tags,omitempty"`
+	VisibilityLevel int      `json:"visibilityLevel,omitempty"`
+}
+
+type insightUpdateRequest struct {
+	Title           *string  `json:"title,omitempty"`
+	Catalogs        []string `json:"catalogs,omitempty"`
+	Content         *string  `json:"content,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	VisibilityLevel *int     `json:"visibilityLevel,omitempty"`
+}
+
 type dayDefaultRecord struct {
 	DiaryID  string
 	IsManual bool
@@ -294,6 +334,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/diaries/history", s.handleDiaryHistory)
 	s.mux.HandleFunc("/api/diaries/reindex", s.handleReindex)
 	s.mux.HandleFunc("/api/diaries/", s.handleDiaryByID)
+	s.mux.HandleFunc("/api/insights", s.handleInsights)
+	s.mux.HandleFunc("/api/insights/", s.handleInsightByID)
 	s.mux.HandleFunc("/api/prompts", s.handlePrompts)
 	s.mux.HandleFunc("/api/prompts/", s.handlePromptByID)
 	s.mux.HandleFunc("/api/generate-packet", s.handleGeneratePacket)
@@ -586,6 +628,164 @@ func (s *Server) handleDiaryByID(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, detail)
 	default:
 		w.Header().Set("Allow", "GET, PATCH")
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+func (s *Server) handleInsights(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+		page := parseInt(r.URL.Query().Get("page"), 1, 1, 1_000_000)
+		pageSize := parseInt(r.URL.Query().Get("pageSize"), 100, 1, 100)
+		tags := normalizeStringListValues(splitCommaList(r.URL.Query()["tags"]))
+		diaryID := strings.TrimSpace(r.URL.Query().Get("diaryId"))
+
+		client, apiKey, cfg, err := s.runtimeClientWithAPIKey()
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+		defer cancel()
+
+		resp, err := s.listInsights(ctx, client, apiKey, page, pageSize, tags, diaryID, q)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, resp)
+	case http.MethodPost:
+		var req insightCreateRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+		if strings.TrimSpace(req.Title) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "title is required"})
+			return
+		}
+		if strings.TrimSpace(req.Content) == "" {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "content is required"})
+			return
+		}
+		if req.VisibilityLevel < 0 || req.VisibilityLevel > 1 {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "visibilityLevel must be 0 or 1"})
+			return
+		}
+
+		client, apiKey, cfg, err := s.runtimeClientWithAPIKey()
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+		defer cancel()
+
+		created, err := client.CreateRuntimeInsight(ctx, apiKey, api.RuntimeInsightCreatePayload{
+			Title:           strings.TrimSpace(req.Title),
+			DiaryID:         strings.TrimSpace(req.DiaryID),
+			Catalogs:        normalizeStringListValues(req.Catalogs),
+			Content:         strings.TrimSpace(req.Content),
+			Tags:            normalizeStringListValues(req.Tags),
+			VisibilityLevel: req.VisibilityLevel,
+		})
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusCreated, mapRuntimeInsight(created))
+	default:
+		w.Header().Set("Allow", "GET, POST")
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
+	}
+}
+
+func (s *Server) handleInsightByID(w http.ResponseWriter, r *http.Request) {
+	path := strings.TrimPrefix(r.URL.Path, "/api/insights/")
+	path = strings.Trim(path, "/")
+	if path == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "insight id is required"})
+		return
+	}
+
+	parts := strings.Split(path, "/")
+	id := strings.TrimSpace(parts[0])
+	if id == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "insight id is required"})
+		return
+	}
+	decoded, decodeErr := url.PathUnescape(id)
+	if decodeErr == nil {
+		id = decoded
+	}
+	if len(parts) > 1 {
+		writeJSON(w, http.StatusNotFound, map[string]any{"error": "route not found"})
+		return
+	}
+
+	client, apiKey, cfg, err := s.runtimeClientWithAPIKey()
+	if err != nil {
+		writeError(w, http.StatusBadRequest, err)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+	defer cancel()
+
+	switch r.Method {
+	case http.MethodGet:
+		item, found, err := s.getInsightByID(ctx, client, apiKey, id)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if !found {
+			writeJSON(w, http.StatusNotFound, map[string]any{"error": "insight not found"})
+			return
+		}
+		writeJSON(w, http.StatusOK, item)
+	case http.MethodPatch:
+		var req insightUpdateRequest
+		if err := decodeJSON(r, &req); err != nil {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": err.Error()})
+			return
+		}
+
+		title := trimOptionalString(req.Title)
+		content := trimOptionalString(req.Content)
+		tags := normalizeStringListValues(req.Tags)
+		catalogs := normalizeStringListValues(req.Catalogs)
+		if req.VisibilityLevel != nil {
+			if *req.VisibilityLevel < 0 || *req.VisibilityLevel > 1 {
+				writeJSON(w, http.StatusBadRequest, map[string]any{"error": "visibilityLevel must be 0 or 1"})
+				return
+			}
+		}
+		if title == nil && content == nil && req.VisibilityLevel == nil && len(tags) == 0 && len(catalogs) == 0 {
+			writeJSON(w, http.StatusBadRequest, map[string]any{"error": "at least one field is required for insight update"})
+			return
+		}
+
+		updated, err := client.UpdateRuntimeInsight(ctx, apiKey, id, api.RuntimeInsightUpdatePayload{
+			Title:           title,
+			Catalogs:        catalogs,
+			Content:         content,
+			Tags:            tags,
+			VisibilityLevel: req.VisibilityLevel,
+		})
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, mapRuntimeInsight(updated))
+	case http.MethodDelete:
+		if err := client.DeleteRuntimeInsight(ctx, apiKey, id); err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]any{"success": true})
+	default:
+		w.Header().Set("Allow", "GET, PATCH, DELETE")
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"error": "method not allowed"})
 	}
 }
@@ -991,6 +1191,151 @@ func (s *Server) resolveAPIKeyForConnectionTest(override string) (apiKey string,
 		return "", ""
 	}
 	return apiKey, "credentials"
+}
+
+func (s *Server) runtimeClientWithAPIKey() (*api.Client, string, config.Config, error) {
+	cfg := config.Default()
+	base := strings.TrimSpace(s.apiBaseURL)
+	if base == "" {
+		base = config.DefaultAPIBaseURL
+	}
+	cfg.APIBaseURL = base
+	if strings.HasPrefix(base, "http://") {
+		cfg.AllowInsecureHTTP = true
+	}
+
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		return nil, "", cfg, fmt.Errorf("create api client: %w", err)
+	}
+	apiKey, err := auth.ResolveAPIKey()
+	if err != nil {
+		return nil, "", cfg, normalizeResolveAPIKeyError(err)
+	}
+	return client, strings.TrimSpace(apiKey), cfg, nil
+}
+
+func normalizeResolveAPIKeyError(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := strings.ToLower(strings.TrimSpace(err.Error()))
+	if msg == "" {
+		return errors.New("resolve api key failed")
+	}
+	if strings.Contains(msg, "credentials file not found") || strings.Contains(msg, "credentials missing api_key") {
+		return errors.New("API key is not configured. Set it in Settings or run `moltbb login --apikey <key>`")
+	}
+	return fmt.Errorf("resolve api key: %w", err)
+}
+
+func (s *Server) listInsights(
+	ctx context.Context,
+	client *api.Client,
+	apiKey string,
+	page int,
+	pageSize int,
+	tags []string,
+	diaryID string,
+	q string,
+) (insightsResponse, error) {
+	result, err := client.ListRuntimeInsights(ctx, apiKey, page, pageSize, tags, diaryID)
+	if err != nil {
+		return insightsResponse{}, err
+	}
+
+	items := make([]insightSummary, 0, len(result.Items))
+	for _, item := range result.Items {
+		mapped := mapRuntimeInsight(item)
+		if q != "" && !strings.Contains(mapped.SearchText, q) {
+			continue
+		}
+		items = append(items, mapped)
+	}
+
+	total := result.TotalCount
+	totalPages := result.TotalPages
+	if q != "" {
+		total = len(items)
+		totalPages = 1
+	}
+	if totalPages <= 0 {
+		totalPages = 1
+	}
+	return insightsResponse{
+		Items:      items,
+		Total:      total,
+		Page:       result.Page,
+		PageSize:   result.PageSize,
+		TotalPages: totalPages,
+	}, nil
+}
+
+func (s *Server) getInsightByID(ctx context.Context, client *api.Client, apiKey, id string) (insightSummary, bool, error) {
+	const pageSize = 100
+	page := 1
+	for {
+		result, err := client.ListRuntimeInsights(ctx, apiKey, page, pageSize, nil, "")
+		if err != nil {
+			return insightSummary{}, false, err
+		}
+		for _, item := range result.Items {
+			if strings.TrimSpace(item.ID) == id {
+				return mapRuntimeInsight(item), true, nil
+			}
+		}
+		if result.TotalPages <= 0 || page >= result.TotalPages || len(result.Items) == 0 {
+			return insightSummary{}, false, nil
+		}
+		page++
+	}
+}
+
+func mapRuntimeInsight(input api.RuntimeInsight) insightSummary {
+	item := insightSummary{
+		ID:              strings.TrimSpace(input.ID),
+		BotID:           strings.TrimSpace(input.BotID),
+		DiaryID:         strings.TrimSpace(input.DiaryID),
+		Title:           strings.TrimSpace(input.Title),
+		Catalogs:        normalizeStringListValues(input.Catalogs),
+		Content:         strings.TrimSpace(input.Content),
+		Tags:            normalizeStringListValues(input.Tags),
+		VisibilityLevel: input.VisibilityLevel,
+		Likes:           input.Likes,
+		CreatedAt:       strings.TrimSpace(input.CreatedAt),
+		UpdatedAt:       strings.TrimSpace(input.UpdatedAt),
+	}
+	item.SearchText = buildInsightSearchText(item)
+	return item
+}
+
+func buildInsightSearchText(item insightSummary) string {
+	fields := make([]string, 0, 8+len(item.Tags)+len(item.Catalogs))
+	fields = append(fields,
+		item.ID,
+		item.BotID,
+		item.DiaryID,
+		item.Title,
+		item.Content,
+		strconv.Itoa(item.VisibilityLevel),
+		strconv.Itoa(item.Likes),
+		item.CreatedAt,
+		item.UpdatedAt,
+	)
+	fields = append(fields, item.Tags...)
+	fields = append(fields, item.Catalogs...)
+	return normalizeSearchText(strings.Join(fields, " "))
+}
+
+func trimOptionalString(input *string) *string {
+	if input == nil {
+		return nil
+	}
+	trimmed := strings.TrimSpace(*input)
+	if trimmed == "" {
+		return nil
+	}
+	return &trimmed
 }
 
 func (s *Server) loadDiaryDetail(id string) (diaryDetail, bool, error) {
@@ -1819,6 +2164,43 @@ func filterNonEmpty(in []string) []string {
 		if trimmed != "" {
 			out = append(out, trimmed)
 		}
+	}
+	return out
+}
+
+func splitCommaList(in []string) []string {
+	out := make([]string, 0, len(in))
+	for _, item := range in {
+		for _, part := range strings.Split(item, ",") {
+			trimmed := strings.TrimSpace(part)
+			if trimmed == "" {
+				continue
+			}
+			out = append(out, trimmed)
+		}
+	}
+	return out
+}
+
+func normalizeStringListValues(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(in))
+	seen := make(map[string]struct{}, len(in))
+	for _, item := range in {
+		trimmed := strings.TrimSpace(item)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	if len(out) == 0 {
+		return nil
 	}
 	return out
 }

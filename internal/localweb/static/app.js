@@ -9,6 +9,7 @@ const MESSAGES = {
     'title.brand': 'MoltBB Console',
     'title.page.diaries': 'Diaries',
     'title.page.calendar': 'Calendar',
+    'title.page.insights': 'Insights',
     'title.page.prompts': 'Prompts',
     'title.page.generate': 'Generate Packet',
     'title.page.settings': 'Settings',
@@ -25,6 +26,7 @@ const MESSAGES = {
     'stats.active': 'Active',
     'tabs.diaries': 'Diaries',
     'tabs.calendar': 'Calendar',
+    'tabs.insights': 'Insights',
     'tabs.prompts': 'Prompts',
     'tabs.generate': 'Generate Packet',
     'tabs.settings': 'Settings',
@@ -94,6 +96,37 @@ const MESSAGES = {
     'calendar.dotMoreTip': 'Show diaries on {date}',
     'calendar.openInDiaries': 'Open In Diaries',
     'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
+    'insight.listTitle': 'Insights',
+    'insight.detailTitle': 'Insight Detail',
+    'insight.searchPlaceholder': 'Search by title / tags / content',
+    'insight.selectHint': 'Select an insight from the left list.',
+    'insight.emptyHint': 'No insights found. Click New to create one.',
+    'insight.newDraftHint': 'Creating a new insight draft.',
+    'insight.title': 'Title',
+    'insight.visibility': 'Visibility',
+    'insight.visibilityPublic': 'Public',
+    'insight.visibilityPrivate': 'Private',
+    'insight.diaryId': 'Diary ID (optional)',
+    'insight.tags': 'Tags (comma-separated)',
+    'insight.catalogs': 'Catalogs (comma-separated)',
+    'insight.tagsPlaceholder': 'strategy, workflow',
+    'insight.catalogsPlaceholder': 'engineering, product',
+    'insight.metaFormat': 'Updated {updatedAt} · Likes {likes} · Visibility {visibility}',
+    'insight.metaSecondary': 'ID {id} · Created {createdAt}',
+    'insight.visibilityBadgePublic': 'PUBLIC',
+    'insight.visibilityBadgePrivate': 'PRIVATE',
+    'insight.viewReading': 'Reading',
+    'insight.viewRaw': 'Raw',
+    'insight.loadListFailed': 'Load insights failed: {message}',
+    'insight.loadFailed': 'Load insight failed: {message}',
+    'insight.saveFailed': 'Save insight failed: {message}',
+    'insight.deleteFailed': 'Delete insight failed: {message}',
+    'insight.titleContentRequired': 'Title and content are required.',
+    'insight.createSuccess': 'Insight created: {title}',
+    'insight.updateSuccess': 'Insight updated: {title}',
+    'insight.deleteSuccess': 'Insight deleted.',
+    'insight.deleteConfirm': 'Delete insight {title}?',
+    'insight.deleteMissing': 'Please select an insight first.',
     'prompt.listTitle': 'Prompt Templates',
     'prompt.editorTitle': 'Prompt Editor',
     'prompt.name': 'Name',
@@ -180,6 +213,7 @@ const MESSAGES = {
     'title.brand': 'MoltBB 控制台',
     'title.page.diaries': '日记',
     'title.page.calendar': '日历',
+    'title.page.insights': '心得',
     'title.page.prompts': '提示词',
     'title.page.generate': '生成数据包',
     'title.page.settings': '设置',
@@ -196,6 +230,7 @@ const MESSAGES = {
     'stats.active': '当前激活',
     'tabs.diaries': '日记',
     'tabs.calendar': '日历',
+    'tabs.insights': '心得',
     'tabs.prompts': '提示词',
     'tabs.generate': '生成数据包',
     'tabs.settings': '设置',
@@ -265,6 +300,37 @@ const MESSAGES = {
     'calendar.dotMoreTip': '查看 {date} 当天日记列表',
     'calendar.openInDiaries': '在日记页打开',
     'calendar.metaFormat': '{date} · {modifiedAt} · {filename}',
+    'insight.listTitle': '心得列表',
+    'insight.detailTitle': '心得详情',
+    'insight.searchPlaceholder': '按标题 / 标签 / 内容搜索',
+    'insight.selectHint': '请从左侧列表选择一条心得。',
+    'insight.emptyHint': '暂无心得，点击“新建”创建。',
+    'insight.newDraftHint': '正在创建新的心得草稿。',
+    'insight.title': '标题',
+    'insight.visibility': '可见性',
+    'insight.visibilityPublic': '公开',
+    'insight.visibilityPrivate': '私有',
+    'insight.diaryId': '关联日记 ID（可选）',
+    'insight.tags': '标签（逗号分隔）',
+    'insight.catalogs': '分类（逗号分隔）',
+    'insight.tagsPlaceholder': '策略, 工作流',
+    'insight.catalogsPlaceholder': '工程, 产品',
+    'insight.metaFormat': '更新于 {updatedAt} · 点赞 {likes} · 可见性 {visibility}',
+    'insight.metaSecondary': 'ID {id} · 创建于 {createdAt}',
+    'insight.visibilityBadgePublic': '公开',
+    'insight.visibilityBadgePrivate': '私有',
+    'insight.viewReading': '阅读模式',
+    'insight.viewRaw': '原文模式',
+    'insight.loadListFailed': '加载心得列表失败: {message}',
+    'insight.loadFailed': '加载心得失败: {message}',
+    'insight.saveFailed': '保存心得失败: {message}',
+    'insight.deleteFailed': '删除心得失败: {message}',
+    'insight.titleContentRequired': '标题和内容不能为空。',
+    'insight.createSuccess': '心得已创建：{title}',
+    'insight.updateSuccess': '心得已更新：{title}',
+    'insight.deleteSuccess': '心得已删除。',
+    'insight.deleteConfirm': '确认删除心得 {title} 吗？',
+    'insight.deleteMissing': '请先选择一条心得。',
     'prompt.listTitle': '提示词模板',
     'prompt.editorTitle': '提示词编辑器',
     'prompt.name': '名称',
@@ -350,14 +416,26 @@ const MESSAGES = {
 
 const state = {
   diaries: [],
+  insights: [],
   prompts: [],
   currentDiaryId: null,
+  currentInsightId: null,
   currentPromptId: null,
   activePromptId: null,
   diaryRawContent: '',
   diaryViewMode: 'raw',
   diaryEditMode: false,
   diaryDraftContent: '',
+  insightRawContent: '',
+  insightViewMode: 'raw',
+  insightEditMode: false,
+  insightDraftContent: '',
+  insightDraftTitle: '',
+  insightDraftDiaryId: '',
+  insightDraftTags: '',
+  insightDraftCatalogs: '',
+  insightDraftVisibility: 0,
+  insightsLoaded: false,
   syncingDiaryId: null,
   diaryHistoryItems: [],
   diaryHistoryMap: Object.create(null),
@@ -368,6 +446,7 @@ const state = {
   calendarDiaryDetail: null,
   calendarDiaryViewMode: 'markdown',
   currentDiaryDetail: null,
+  currentInsightDetail: null,
   currentPromptDetail: null,
   settings: null,
   settingsTest: null,
@@ -737,6 +816,393 @@ function setDiaryEmptyState() {
   renderDiaryMeta();
 }
 
+function normalizeInsightArray(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  input.forEach((item) => {
+    const value = String(item || '').trim();
+    if (!value || seen.has(value)) {
+      return;
+    }
+    seen.add(value);
+    out.push(value);
+  });
+  return out;
+}
+
+function parseInsightCommaList(raw) {
+  return normalizeInsightArray(
+    String(raw || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+}
+
+function mapInsight(raw = {}) {
+  return {
+    id: String(raw.id || '').trim(),
+    botId: String(raw.botId || '').trim(),
+    diaryId: String(raw.diaryId || '').trim(),
+    title: String(raw.title || '').trim(),
+    catalogs: normalizeInsightArray(raw.catalogs),
+    content: String(raw.content || ''),
+    tags: normalizeInsightArray(raw.tags),
+    visibilityLevel: Number.isFinite(raw.visibilityLevel) ? Number(raw.visibilityLevel) : 0,
+    likes: Number.isFinite(raw.likes) ? Number(raw.likes) : 0,
+    createdAt: String(raw.createdAt || '').trim(),
+    updatedAt: String(raw.updatedAt || '').trim(),
+  };
+}
+
+function insightVisibilityLabel(level) {
+  return Number(level) === 1 ? t('insight.visibilityBadgePrivate') : t('insight.visibilityBadgePublic');
+}
+
+function applyInsightViewModeButton() {
+  const button = el('btnInsightViewMode');
+  if (!button) {
+    return;
+  }
+  button.disabled = state.insightEditMode;
+  if (state.insightViewMode === 'raw') {
+    button.textContent = t('insight.viewReading');
+    button.dataset.mode = 'raw';
+  } else {
+    button.textContent = t('insight.viewRaw');
+    button.dataset.mode = 'reading';
+  }
+}
+
+function applyInsightEditButtons() {
+  const editBtn = el('btnInsightEdit');
+  const saveBtn = el('btnInsightSave');
+  const deleteBtn = el('btnInsightDelete');
+  if (!editBtn || !saveBtn || !deleteBtn) {
+    return;
+  }
+  const hasInsight = !!state.currentInsightId;
+  editBtn.textContent = state.insightEditMode ? t('actions.cancel') : t('actions.edit');
+  editBtn.disabled = !hasInsight && !state.insightEditMode;
+  saveBtn.disabled = !state.insightEditMode;
+  deleteBtn.disabled = !hasInsight || state.insightEditMode;
+}
+
+function renderInsightDraftFields() {
+  const title = el('insightTitle');
+  const diaryId = el('insightDiaryId');
+  const tags = el('insightTags');
+  const catalogs = el('insightCatalogs');
+  const visibility = el('insightVisibility');
+  if (!title || !diaryId || !tags || !catalogs || !visibility) {
+    return;
+  }
+
+  title.value = state.insightDraftTitle || '';
+  diaryId.value = state.insightDraftDiaryId || '';
+  tags.value = state.insightDraftTags || '';
+  catalogs.value = state.insightDraftCatalogs || '';
+  visibility.value = String(state.insightDraftVisibility ?? 0);
+
+  const editable = !!state.insightEditMode;
+  title.disabled = !editable;
+  diaryId.disabled = !editable || !!state.currentInsightId;
+  tags.disabled = !editable;
+  catalogs.disabled = !editable;
+  visibility.disabled = !editable;
+}
+
+function renderInsightMeta() {
+  const primary = el('insightMetaPrimary');
+  const secondary = el('insightMetaSecondary');
+  if (!primary || !secondary) {
+    return;
+  }
+  if (!state.currentInsightDetail) {
+    primary.textContent = '';
+    secondary.textContent = '';
+    return;
+  }
+  const detail = state.currentInsightDetail;
+  primary.textContent = t('insight.metaFormat', {
+    updatedAt: detail.updatedAt || '',
+    likes: detail.likes || 0,
+    visibility: insightVisibilityLabel(detail.visibilityLevel),
+  });
+  secondary.textContent = t('insight.metaSecondary', {
+    id: detail.id || '',
+    createdAt: detail.createdAt || '',
+  });
+}
+
+function renderInsightContent() {
+  const preview = el('insightContent');
+  const editor = el('insightEditor');
+  if (!preview || !editor) {
+    return;
+  }
+
+  const content = state.insightRawContent || '';
+  if (state.insightEditMode) {
+    preview.hidden = true;
+    editor.hidden = false;
+    editor.value = state.insightDraftContent;
+    editor.focus();
+    applyInsightViewModeButton();
+    applyInsightEditButtons();
+    renderInsightDraftFields();
+    return;
+  }
+
+  preview.hidden = false;
+  editor.hidden = true;
+  if (state.insightViewMode === 'markdown') {
+    preview.classList.add('markdown-view');
+    preview.innerHTML = markdownToHtml(content);
+  } else {
+    preview.classList.remove('markdown-view');
+    preview.textContent = content;
+  }
+  applyInsightViewModeButton();
+  applyInsightEditButtons();
+  renderInsightDraftFields();
+}
+
+function setInsightDraftFromDetail(detail) {
+  state.insightDraftTitle = detail?.title || '';
+  state.insightDraftDiaryId = detail?.diaryId || '';
+  state.insightDraftTags = (detail?.tags || []).join(', ');
+  state.insightDraftCatalogs = (detail?.catalogs || []).join(', ');
+  state.insightDraftVisibility = Number.isFinite(detail?.visibilityLevel) ? Number(detail.visibilityLevel) : 0;
+  state.insightDraftContent = detail?.content || '';
+}
+
+function setInsightEmptyState() {
+  state.currentInsightId = null;
+  state.currentInsightDetail = null;
+  state.insightEditMode = false;
+  state.insightRawContent = t('insight.selectHint');
+  state.insightDraftTitle = '';
+  state.insightDraftDiaryId = '';
+  state.insightDraftTags = '';
+  state.insightDraftCatalogs = '';
+  state.insightDraftVisibility = 0;
+  state.insightDraftContent = '';
+  renderInsightMeta();
+  renderInsightContent();
+}
+
+function insightMatchesSearch(item, query) {
+  if (!query) {
+    return true;
+  }
+  const terms = [
+    item.title,
+    item.content,
+    item.id,
+    item.diaryId,
+    item.botId,
+    ...(item.tags || []),
+    ...(item.catalogs || []),
+  ];
+  return terms.join(' ').toLowerCase().includes(query);
+}
+
+function currentInsightQuery() {
+  const search = el('insightSearch');
+  return String(search?.value || '').trim().toLowerCase();
+}
+
+function filteredInsights() {
+  const q = currentInsightQuery();
+  return (state.insights || []).filter((item) => insightMatchesSearch(item, q));
+}
+
+function renderInsightList(items) {
+  const container = el('insightList');
+  if (!container) {
+    return;
+  }
+  if (!items.length) {
+    container.innerHTML = `<div class="muted">${escapeHtml(t('insight.emptyHint'))}</div>`;
+    return;
+  }
+  container.innerHTML = items
+    .map((item) => {
+      const active = item.id === state.currentInsightId ? 'active' : '';
+      const tags = item.tags?.length ? item.tags.map((tag) => `#${tag}`).join(' ') : '';
+      const preview = String(item.content || '').replace(/\s+/g, ' ').trim().slice(0, 180);
+      return `
+        <article class="item ${active}" data-id="${escapeHtml(item.id)}">
+          <h3>${escapeHtml(item.title || item.id)}</h3>
+          <p>${escapeHtml(preview)}</p>
+          <div class="meta">${escapeHtml(insightVisibilityLabel(item.visibilityLevel))} · ${escapeHtml(item.updatedAt || item.createdAt || '')}</div>
+          ${tags ? `<div class="meta">${escapeHtml(tags)}</div>` : ''}
+        </article>
+      `;
+    })
+    .join('');
+
+  container.querySelectorAll('.item').forEach((node) => {
+    node.addEventListener('click', () => {
+      selectInsight(node.dataset.id);
+    });
+  });
+}
+
+function selectInsight(id) {
+  const target = String(id || '').trim();
+  const detail = state.insights.find((item) => item.id === target);
+  if (!detail) {
+    setInsightEmptyState();
+    renderInsightList(filteredInsights());
+    return;
+  }
+  state.currentInsightId = detail.id;
+  state.currentInsightDetail = mapInsight(detail);
+  state.insightEditMode = false;
+  state.insightRawContent = detail.content || '';
+  setInsightDraftFromDetail(detail);
+  renderInsightList(filteredInsights());
+  renderInsightMeta();
+  renderInsightContent();
+}
+
+function beginInsightCreate() {
+  state.currentInsightId = null;
+  state.currentInsightDetail = null;
+  state.insightEditMode = true;
+  state.insightRawContent = t('insight.newDraftHint');
+  state.insightDraftTitle = '';
+  state.insightDraftDiaryId = '';
+  state.insightDraftTags = '';
+  state.insightDraftCatalogs = '';
+  state.insightDraftVisibility = 0;
+  state.insightDraftContent = '';
+  renderInsightList(filteredInsights());
+  renderInsightMeta();
+  renderInsightContent();
+}
+
+function toggleInsightEditMode() {
+  if (!state.currentInsightId) {
+    if (state.insightEditMode) {
+      if (state.insights.length > 0) {
+        selectInsight(state.insights[0].id);
+      } else {
+        setInsightEmptyState();
+      }
+      return;
+    }
+    setStatusKey('insight.deleteMissing', {}, true);
+    return;
+  }
+  state.insightEditMode = !state.insightEditMode;
+  if (!state.insightEditMode && state.currentInsightDetail) {
+    setInsightDraftFromDetail(state.currentInsightDetail);
+  }
+  renderInsightContent();
+}
+
+async function loadInsights(preferredID = '') {
+  const q = currentInsightQuery();
+  const data = await api(`/insights?page=1&pageSize=100&q=${encodeURIComponent(q)}`);
+  state.insights = Array.isArray(data.items) ? data.items.map((item) => mapInsight(item)) : [];
+  state.insightsLoaded = true;
+
+  let selectedID = String(preferredID || state.currentInsightId || '').trim();
+  if (selectedID && !state.insights.some((item) => item.id === selectedID)) {
+    selectedID = '';
+  }
+  if (!selectedID && state.insights.length > 0) {
+    selectedID = state.insights[0].id;
+  }
+  renderInsightList(filteredInsights());
+  if (selectedID) {
+    selectInsight(selectedID);
+    return;
+  }
+  setInsightEmptyState();
+}
+
+async function ensureInsightsLoaded(forceReload = false) {
+  if (!forceReload && state.insightsLoaded) {
+    return;
+  }
+  await loadInsights();
+}
+
+async function saveInsight() {
+  const titleValue = String(el('insightTitle')?.value || '').trim();
+  const contentValue = String(el('insightEditor')?.value || state.insightDraftContent || '').trim();
+  const diaryIDValue = String(el('insightDiaryId')?.value || '').trim();
+  const tags = parseInsightCommaList(el('insightTags')?.value || '');
+  const catalogs = parseInsightCommaList(el('insightCatalogs')?.value || '');
+  const visibility = Number.parseInt(String(el('insightVisibility')?.value || '0'), 10);
+
+  if (!titleValue || !contentValue) {
+    setStatusKey('insight.titleContentRequired', {}, true);
+    return;
+  }
+  if (!Number.isFinite(visibility) || visibility < 0 || visibility > 1) {
+    setStatusKey('insight.saveFailed', { message: 'visibilityLevel must be 0 or 1' }, true);
+    return;
+  }
+
+  if (state.currentInsightId) {
+    const updated = await api(`/insights/${encodeURIComponent(state.currentInsightId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        title: titleValue,
+        content: contentValue,
+        tags,
+        catalogs,
+        visibilityLevel: visibility,
+      }),
+    });
+    await loadInsights(updated?.id || state.currentInsightId);
+    state.insightEditMode = false;
+    renderInsightContent();
+    setStatusKey('insight.updateSuccess', { title: updated?.title || titleValue });
+    return;
+  }
+
+  const created = await api('/insights', {
+    method: 'POST',
+    body: JSON.stringify({
+      title: titleValue,
+      content: contentValue,
+      diaryId: diaryIDValue,
+      tags,
+      catalogs,
+      visibilityLevel: visibility,
+    }),
+  });
+  await loadInsights(created?.id || '');
+  state.insightEditMode = false;
+  renderInsightContent();
+  setStatusKey('insight.createSuccess', { title: created?.title || titleValue });
+}
+
+async function deleteInsight() {
+  if (!state.currentInsightId) {
+    setStatusKey('insight.deleteMissing', {}, true);
+    return;
+  }
+  const title = state.currentInsightDetail?.title || state.currentInsightId;
+  const yes = confirm(t('insight.deleteConfirm', { title }));
+  if (!yes) {
+    return;
+  }
+  const deletingID = state.currentInsightId;
+  await api(`/insights/${encodeURIComponent(deletingID)}`, { method: 'DELETE' });
+  await loadInsights();
+  setStatusKey('insight.deleteSuccess');
+}
+
 function switchTab(name) {
   const tab = String(name || '').trim() || 'diaries';
   state.currentTab = tab;
@@ -753,6 +1219,11 @@ function switchTab(name) {
     ensureCalendarDefaultSelection().catch((err) => {
       setStatusKey('diary.loadListFailed', { message: err.message }, true);
     });
+    return;
+  }
+  if (tab === 'insights') {
+    ensureInsightsLoaded()
+      .catch((err) => setStatusKey('insight.loadListFailed', { message: err.message }, true));
   }
 }
 
@@ -1869,6 +2340,14 @@ function refreshLocalizedDynamicText() {
     setDiaryEmptyState();
   }
 
+  renderInsightList(filteredInsights());
+  if (state.currentInsightDetail || state.insightEditMode) {
+    renderInsightMeta();
+    renderInsightContent();
+  } else {
+    setInsightEmptyState();
+  }
+
   renderPromptList();
   fillPromptSelector();
   updatePromptMeta();
@@ -1878,6 +2357,7 @@ function refreshLocalizedDynamicText() {
   }
 
   applyDiaryViewModeButton();
+  applyInsightViewModeButton();
   renderSettings();
 }
 
@@ -1990,6 +2470,63 @@ function bindEvents() {
     }, 220);
   });
 
+  el('insightSearch').addEventListener('input', () => {
+    clearTimeout(bindEvents.insightTimer);
+    bindEvents.insightTimer = setTimeout(() => {
+      ensureInsightsLoaded(true).catch((err) => setStatusKey('insight.loadListFailed', { message: err.message }, true));
+    }, 220);
+  });
+
+  el('btnInsightReload').addEventListener('click', () => {
+    ensureInsightsLoaded(true).catch((err) => setStatusKey('insight.loadListFailed', { message: err.message }, true));
+  });
+
+  el('btnInsightViewMode').addEventListener('click', () => {
+    state.insightViewMode = state.insightViewMode === 'raw' ? 'markdown' : 'raw';
+    renderInsightContent();
+  });
+
+  el('btnInsightNew').addEventListener('click', () => {
+    beginInsightCreate();
+  });
+
+  el('btnInsightEdit').addEventListener('click', () => {
+    toggleInsightEditMode();
+  });
+
+  el('btnInsightSave').addEventListener('click', () => {
+    saveInsight().catch((err) => setStatusKey('insight.saveFailed', { message: err.message }, true));
+  });
+
+  el('btnInsightDelete').addEventListener('click', () => {
+    deleteInsight().catch((err) => setStatusKey('insight.deleteFailed', { message: err.message }, true));
+  });
+
+  el('insightEditor').addEventListener('input', (event) => {
+    state.insightDraftContent = event.target.value;
+  });
+
+  el('insightTitle').addEventListener('input', (event) => {
+    state.insightDraftTitle = event.target.value;
+  });
+
+  el('insightDiaryId').addEventListener('input', (event) => {
+    state.insightDraftDiaryId = event.target.value;
+  });
+
+  el('insightTags').addEventListener('input', (event) => {
+    state.insightDraftTags = event.target.value;
+  });
+
+  el('insightCatalogs').addEventListener('input', (event) => {
+    state.insightDraftCatalogs = event.target.value;
+  });
+
+  el('insightVisibility').addEventListener('change', (event) => {
+    const value = Number.parseInt(String(event.target.value || '0'), 10);
+    state.insightDraftVisibility = Number.isFinite(value) ? value : 0;
+  });
+
   el('btnReindex').addEventListener('click', () => {
     reindex().catch((err) => setStatusKey('reindex.failed', { message: err.message }, true));
   });
@@ -2054,11 +2591,15 @@ function bindEvents() {
 
 async function bootstrap() {
   setStatusKey('status.loading');
+  state.insightsLoaded = false;
   await loadState();
   await loadDiaries();
   await loadDiaryHistory();
   await loadPrompts();
   await loadSettings();
+  if (state.currentTab === 'insights') {
+    await ensureInsightsLoaded(true);
+  }
   setStatusKey('status.ready');
 }
 
@@ -2073,8 +2614,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   bindEvents();
   initDateDefault();
   setDiaryEmptyState();
+  setInsightEmptyState();
   el('generateResult').textContent = t('generate.noPacket');
   applyDiaryViewModeButton();
+  applyInsightViewModeButton();
   applyCalendarDiaryViewModeButton();
   renderCalendarDiaryDetail();
   try {

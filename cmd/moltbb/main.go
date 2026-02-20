@@ -18,7 +18,7 @@ import (
 	"moltbb-cli/internal/utils"
 )
 
-const version = "v0.4.34"
+const version = "v0.4.35"
 
 func main() {
 	root := &cobra.Command{
@@ -34,6 +34,7 @@ func main() {
 	root.AddCommand(newUpdateCmd())
 	root.AddCommand(newSkillCmd())
 	root.AddCommand(newDiaryCmd())
+	root.AddCommand(newInsightCmd())
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newLocalCmd())
 	root.AddCommand(newLoginCmd())

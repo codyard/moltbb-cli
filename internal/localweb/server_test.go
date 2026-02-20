@@ -357,6 +357,178 @@ func TestSettingsTestConnectionSuccess(t *testing.T) {
 	}
 }
 
+func TestInsightsAPIRequiresAPIKey(t *testing.T) {
+	t.Setenv("MOLTBB_API_KEY", "")
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: "https://api.moltbb.com",
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/insights", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("list insights status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "API key is not configured") {
+		t.Fatalf("expected api key configured message, got=%s", rec.Body.String())
+	}
+}
+
+func TestInsightsAPIProxyCRUD(t *testing.T) {
+	expectedAPIKey := "sk-insight-123456"
+	t.Setenv("MOLTBB_API_KEY", expectedAPIKey)
+
+	insightID := "11111111-1111-1111-1111-111111111111"
+	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("X-API-Key"); got != expectedAPIKey {
+			w.WriteHeader(http.StatusUnauthorized)
+			_, _ = w.Write([]byte(`{"success":false,"message":"invalid key"}`))
+			return
+		}
+
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/runtime/insights":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+  "success": true,
+  "data": [{
+    "id": "` + insightID + `",
+    "botId": "bot-1",
+    "title": "Alpha Insight",
+    "content": "alpha content",
+    "tags": ["alpha"],
+    "catalogs": ["engineering"],
+    "visibilityLevel": 0,
+    "likes": 3,
+    "createdAt": "2026-02-20T10:00:00Z",
+    "updatedAt": "2026-02-20T10:30:00Z"
+  }],
+  "pagination": {"page": 1, "pageSize": 100, "totalCount": 1, "totalPages": 1}
+}`))
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/runtime/insights":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+  "success": true,
+  "data": {
+    "id": "22222222-2222-2222-2222-222222222222",
+    "botId": "bot-1",
+    "title": "Created Insight",
+    "content": "created content",
+    "tags": ["new"],
+    "catalogs": ["product"],
+    "visibilityLevel": 1,
+    "likes": 0,
+    "createdAt": "2026-02-20T11:00:00Z",
+    "updatedAt": "2026-02-20T11:00:00Z"
+  }
+}`))
+			return
+		case r.Method == http.MethodPatch && strings.HasPrefix(r.URL.Path, "/api/v1/runtime/insights/"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{
+  "success": true,
+  "data": {
+    "id": "` + insightID + `",
+    "botId": "bot-1",
+    "title": "Updated Insight",
+    "content": "updated content",
+    "tags": ["alpha", "beta"],
+    "catalogs": ["engineering"],
+    "visibilityLevel": 1,
+    "likes": 5,
+    "createdAt": "2026-02-20T10:00:00Z",
+    "updatedAt": "2026-02-20T12:00:00Z"
+  }
+}`))
+			return
+		case r.Method == http.MethodDelete && strings.HasPrefix(r.URL.Path, "/api/v1/runtime/insights/"):
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"success":true}`))
+			return
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer remote.Close()
+
+	diaryDir := t.TempDir()
+	dataDir := t.TempDir()
+	srv, err := New(Options{
+		DiaryDir:   diaryDir,
+		DataDir:    dataDir,
+		APIBaseURL: remote.URL,
+		InputPaths: []string{"/tmp/work.log"},
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/insights?q=alpha", nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list insights status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var listResp insightsResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &listResp); err != nil {
+		t.Fatalf("decode list response: %v", err)
+	}
+	if listResp.Total != 1 || len(listResp.Items) != 1 {
+		t.Fatalf("expected 1 insight in list response, got total=%d len=%d", listResp.Total, len(listResp.Items))
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/insights/"+url.PathEscape(insightID), nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get insight status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/insights", strings.NewReader(`{
+  "title":"Created Insight",
+  "content":"created content",
+  "tags":["new"],
+  "catalogs":["product"],
+  "visibilityLevel":1
+}`))
+	req.Header.Set("Content-Type", "application/json")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create insight status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPatch, "/api/insights/"+url.PathEscape(insightID), strings.NewReader(`{
+  "title":"Updated Insight",
+  "content":"updated content",
+  "tags":["alpha","beta"],
+  "visibilityLevel":1
+}`))
+	req.Header.Set("Content-Type", "application/json")
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("update insight status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodDelete, "/api/insights/"+url.PathEscape(insightID), nil)
+	srv.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("delete insight status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestDiarySearchMatchesFullContent(t *testing.T) {
 	t.Parallel()
 

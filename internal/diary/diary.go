@@ -118,6 +118,7 @@ func loadPromptTemplate(templateRef string) (string, error) {
 func renderPromptPacket(template, date, hostname, apiBaseURL string, logSourceHints []string) string {
 	hints := normalizeLogSourceHints(logSourceHints)
 	capabilityEndpoint := buildCapabilitiesEndpoint(apiBaseURL)
+	insightEndpoint := buildRuntimeInsightEndpoint(apiBaseURL)
 	structured, _ := json.MarshalIndent(struct {
 		Date                string   `json:"date"`
 		Hostname            string   `json:"hostname"`
@@ -152,15 +153,62 @@ func renderPromptPacket(template, date, hostname, apiBaseURL string, logSourceHi
 			Endpoint:              capabilityEndpoint,
 			Method:                "GET",
 			UseLatestSpecToSubmit: true,
-			RequiredBeforeActions: []string{"validate_api_key", "bind_bot", "upload_diary", "update_diary"},
+			RequiredBeforeActions: []string{"validate_api_key", "bind_bot", "upload_diary", "update_diary", "upload_insight", "update_insight", "list_insights", "delete_insight"},
 			OnFailure:             "stop_and_report_capability_fetch_error",
 		},
+	}, "", "  ")
+	insightPrompt, _ := json.MarshalIndent(struct {
+		Enabled             bool     `json:"enabled"`
+		Mode                string   `json:"mode"`
+		Objective           string   `json:"objective"`
+		Source              string   `json:"source"`
+		CreateEndpoint      string   `json:"createEndpoint"`
+		CreateMethod        string   `json:"createMethod"`
+		RequiredPayload     []string `json:"requiredPayload"`
+		OptionalPayload     []string `json:"optionalPayload"`
+		SuggestedStructure  []string `json:"suggestedStructure"`
+		QualityChecks       []string `json:"qualityChecks"`
+		WhenToSkip          string   `json:"whenToSkip"`
+		DefaultVisibility   int      `json:"defaultVisibilityLevel"`
+		ExpectedOutputStyle string   `json:"expectedOutputStyle"`
+	}{
+		Enabled:        true,
+		Mode:           "optional_single_point",
+		Objective:      "After diary generation, optionally create one single-point insight for the same day when there is a concrete lesson, discovery, or reflection.",
+		Source:         "Use only validated same-day signals from logs/diary context.",
+		CreateEndpoint: insightEndpoint,
+		CreateMethod:   "POST",
+		RequiredPayload: []string{
+			"title",
+			"content",
+		},
+		OptionalPayload: []string{
+			"tags",
+			"catalogs",
+			"diaryId",
+			"visibilityLevel",
+		},
+		SuggestedStructure: []string{
+			"Problem/Background",
+			"Thinking",
+			"Conclusion/Action",
+		},
+		QualityChecks: []string{
+			"focus_on_one_point_only",
+			"no_broad_multi_topic_summary",
+			"grounded_in_observable_signals",
+			"actionable_or_conclusive_ending",
+		},
+		WhenToSkip:          "If no clear single-point insight emerges, skip insight upload and continue without error.",
+		DefaultVisibility:   0,
+		ExpectedOutputStyle: "100-500 Chinese characters or concise equivalent, specific and non-generic.",
 	}, "", "  ")
 
 	out := template
 	out = injectPromptSection(out, "[TODAY_STRUCTURED_SUMMARY]", string(structured))
 	out = injectPromptSection(out, "[OPTIONAL: RECENT MEMORY EXCERPT]", "(none)")
 	out = injectPromptSection(out, "[ROLE_DEFINITION]", "assistant")
+	out = injectPromptSection(out, "[INSIGHT_PROMPT]", string(insightPrompt))
 	return out
 }
 
@@ -182,6 +230,15 @@ func buildCapabilitiesEndpoint(apiBaseURL string) string {
 	}
 	base = strings.TrimRight(base, "/")
 	return base + "/api/v1/runtime/capabilities"
+}
+
+func buildRuntimeInsightEndpoint(apiBaseURL string) string {
+	base := strings.TrimSpace(apiBaseURL)
+	if base == "" {
+		return "/api/v1/runtime/insights"
+	}
+	base = strings.TrimRight(base, "/")
+	return base + "/api/v1/runtime/insights"
 }
 
 func injectPromptSection(template, token, value string) string {

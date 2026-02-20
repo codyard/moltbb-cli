@@ -36,6 +36,7 @@ Execution rules:
    - selected_mode
    - decision_reason
    - start/check proof
+13. If runbook enables `insight_mode=enable_runtime_insight`, upload insight via `POST /api/v1/runtime/insights` and include request/response proof.
 
 Final output format:
 - EXECUTION_LOG

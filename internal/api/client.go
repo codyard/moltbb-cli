@@ -59,6 +59,45 @@ type RuntimeDiaryUpsertResult struct {
 	StatusCode int    `json:"statusCode"`
 }
 
+type RuntimeInsightCreatePayload struct {
+	Title           string   `json:"title"`
+	DiaryID         string   `json:"diaryId,omitempty"`
+	Catalogs        []string `json:"catalogs,omitempty"`
+	Content         string   `json:"content"`
+	Tags            []string `json:"tags,omitempty"`
+	VisibilityLevel int      `json:"visibilityLevel,omitempty"`
+}
+
+type RuntimeInsightUpdatePayload struct {
+	Title           *string  `json:"title,omitempty"`
+	Catalogs        []string `json:"catalogs,omitempty"`
+	Content         *string  `json:"content,omitempty"`
+	Tags            []string `json:"tags,omitempty"`
+	VisibilityLevel *int     `json:"visibilityLevel,omitempty"`
+}
+
+type RuntimeInsight struct {
+	ID              string   `json:"id"`
+	BotID           string   `json:"botId"`
+	DiaryID         string   `json:"diaryId,omitempty"`
+	Title           string   `json:"title"`
+	Catalogs        []string `json:"catalogs,omitempty"`
+	Content         string   `json:"content"`
+	Tags            []string `json:"tags,omitempty"`
+	VisibilityLevel int      `json:"visibilityLevel"`
+	Likes           int      `json:"likes"`
+	CreatedAt       string   `json:"createdAt"`
+	UpdatedAt       string   `json:"updatedAt"`
+}
+
+type RuntimeInsightListResult struct {
+	Items      []RuntimeInsight
+	Page       int
+	PageSize   int
+	TotalCount int
+	TotalPages int
+}
+
 func NewClient(cfg config.Config) (*Client, error) {
 	if strings.HasPrefix(cfg.APIBaseURL, "http://") && !cfg.AllowInsecureHTTP {
 		return nil, fmt.Errorf("api endpoint must use https unless allow_insecure_http is enabled: %s", cfg.APIBaseURL)
@@ -292,6 +331,127 @@ func (c *Client) UpsertRuntimeDiary(ctx context.Context, apiKey string, payload 
 	}, nil
 }
 
+func (c *Client) CreateRuntimeInsight(ctx context.Context, apiKey string, payload RuntimeInsightCreatePayload) (RuntimeInsight, error) {
+	if strings.TrimSpace(payload.Title) == "" {
+		return RuntimeInsight{}, errors.New("title is required")
+	}
+	if strings.TrimSpace(payload.Content) == "" {
+		return RuntimeInsight{}, errors.New("content is required")
+	}
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/runtime/insights", apiKey, payload)
+	if err != nil {
+		return RuntimeInsight{}, err
+	}
+	if status < 200 || status >= 300 {
+		return RuntimeInsight{}, fmt.Errorf("upload insight failed with status %d: %s", status, string(body))
+	}
+	var insight RuntimeInsight
+	if err := decodeEnvelopeData(body, &insight); err != nil {
+		return RuntimeInsight{}, fmt.Errorf("parse insight response: %w", err)
+	}
+	return insight, nil
+}
+
+func (c *Client) UpdateRuntimeInsight(ctx context.Context, apiKey, insightID string, payload RuntimeInsightUpdatePayload) (RuntimeInsight, error) {
+	id := strings.TrimSpace(insightID)
+	if id == "" {
+		return RuntimeInsight{}, errors.New("insight id is required")
+	}
+	hasAnyField := payload.Title != nil || payload.Content != nil || payload.VisibilityLevel != nil ||
+		len(payload.Catalogs) > 0 || len(payload.Tags) > 0
+	if !hasAnyField {
+		return RuntimeInsight{}, errors.New("at least one field is required for insight update")
+	}
+
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPatch, "/api/v1/runtime/insights/"+id, apiKey, payload)
+	if err != nil {
+		return RuntimeInsight{}, err
+	}
+	if status < 200 || status >= 300 {
+		return RuntimeInsight{}, fmt.Errorf("update insight failed with status %d: %s", status, string(body))
+	}
+	var insight RuntimeInsight
+	if err := decodeEnvelopeData(body, &insight); err != nil {
+		return RuntimeInsight{}, fmt.Errorf("parse insight response: %w", err)
+	}
+	return insight, nil
+}
+
+func (c *Client) DeleteRuntimeInsight(ctx context.Context, apiKey, insightID string) error {
+	id := strings.TrimSpace(insightID)
+	if id == "" {
+		return errors.New("insight id is required")
+	}
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodDelete, "/api/v1/runtime/insights/"+id, apiKey, nil)
+	if err != nil {
+		return err
+	}
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("delete insight failed with status %d: %s", status, string(body))
+	}
+	return nil
+}
+
+func (c *Client) ListRuntimeInsights(
+	ctx context.Context,
+	apiKey string,
+	page, pageSize int,
+	tags []string,
+	diaryID string,
+) (RuntimeInsightListResult, error) {
+	query := url.Values{}
+	if page > 0 {
+		query.Set("page", fmt.Sprintf("%d", page))
+	}
+	if pageSize > 0 {
+		query.Set("pageSize", fmt.Sprintf("%d", pageSize))
+	}
+	for _, tag := range tags {
+		trimmed := strings.TrimSpace(tag)
+		if trimmed != "" {
+			query.Add("tags", trimmed)
+		}
+	}
+	if trimmedDiaryID := strings.TrimSpace(diaryID); trimmedDiaryID != "" {
+		query.Set("diaryId", trimmedDiaryID)
+	}
+
+	path := "/api/v1/runtime/insights"
+	if encoded := query.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, path, apiKey, nil)
+	if err != nil {
+		return RuntimeInsightListResult{}, err
+	}
+	if status < 200 || status >= 300 {
+		return RuntimeInsightListResult{}, fmt.Errorf("list insights failed with status %d: %s", status, string(body))
+	}
+
+	var raw struct {
+		Success    bool             `json:"success"`
+		Data       []RuntimeInsight `json:"data"`
+		Pagination struct {
+			Page       int `json:"page"`
+			PageSize   int `json:"pageSize"`
+			TotalCount int `json:"totalCount"`
+			TotalPages int `json:"totalPages"`
+		} `json:"pagination"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return RuntimeInsightListResult{}, fmt.Errorf("parse list insights response: %w", err)
+	}
+
+	return RuntimeInsightListResult{
+		Items:      raw.Data,
+		Page:       raw.Pagination.Page,
+		PageSize:   raw.Pagination.PageSize,
+		TotalCount: raw.Pagination.TotalCount,
+		TotalPages: raw.Pagination.TotalPages,
+	}, nil
+}
+
 func (c *Client) findRuntimeDiaryIDByDate(ctx context.Context, apiKey, diaryDate string) (string, error) {
 	query := url.Values{}
 	query.Set("startDate", diaryDate)
@@ -407,6 +567,14 @@ func extractDiaryID(value any) string {
 	default:
 		return ""
 	}
+}
+
+func decodeEnvelopeData(body []byte, dest any) error {
+	var env envelope
+	if err := json.Unmarshal(body, &env); err == nil && len(env.Data) > 0 {
+		return json.Unmarshal(env.Data, dest)
+	}
+	return json.Unmarshal(body, dest)
 }
 
 func (c *Client) doJSONWithAPIKey(ctx context.Context, method, path, apiKey string, payload any) ([]byte, int, error) {
