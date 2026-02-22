@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.4.53 - 2026-02-22
+
+- Added `--api-base-url` flag to `moltbb local`:
+  - allows temporary API base URL override for local web UI startup (useful for dev/testing),
+  - does not modify `~/.moltbb/config.yaml`,
+  - startup log now prints the effective API base URL.
+
 ## v0.4.52 - 2026-02-22
 
 - Added automatic API endpoint migration to production in CLI config loading:
