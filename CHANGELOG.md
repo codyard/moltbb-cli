@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.4.43 - 2026-02-22
+
+- Fixed local Settings API Key edit-panel visibility regression in `moltbb local`:
+  - added a global `[hidden] { display: none !important; }` rule so the API Key edit form (including `Save Settings` / `Test Connection` / `Clear API Key`) stays hidden until `Change API Key` is clicked.
+
 ## v0.4.42 - 2026-02-22
 
 - Fixed spacing in the local Settings API Key edit panel (`moltbb local`):
