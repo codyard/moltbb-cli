@@ -479,6 +479,7 @@ const state = {
   settings: null,
   settingsTest: null,
   settingsApiKeyEditMode: false,
+  settingsConnectionTestInFlight: false,
   apiBaseUrl: '',
   locale: 'en',
   fontSize: 'small',
@@ -1302,6 +1303,10 @@ function switchTab(name) {
   if (tab === 'insights') {
     ensureInsightsLoaded()
       .catch((err) => setStatusKey('insight.loadListFailed', { message: err.message }, true));
+    return;
+  }
+  if (tab === 'settings') {
+    maybeAutoTestSettingsConnectionOnEnter();
   }
 }
 
@@ -1348,19 +1353,21 @@ function shouldShowSettingsApiKeyEditor() {
 }
 
 function renderSettingsApiKeyEditor() {
+  const panel = el('settingsApiKeyEditPanel');
   const field = el('settingsApiKeyField');
   const input = el('settingApiKey');
   const editButton = el('btnEditApiKey');
   const cancelButton = el('btnCancelApiKeyEdit');
   const clearButton = el('btnClearApiKey');
-  if (!field || !input) {
+  if (!panel || !field || !input) {
     return;
   }
 
   const apiKeyConfigured = !!state.settings?.apiKeyConfigured;
   const showEditor = shouldShowSettingsApiKeyEditor();
 
-  field.hidden = !showEditor;
+  panel.hidden = !showEditor;
+  field.hidden = false;
   input.disabled = !showEditor;
 
   if (!showEditor) {
@@ -1523,6 +1530,7 @@ function renderSettings() {
 async function loadSettings() {
   state.settings = await api('/settings');
   renderSettings();
+  maybeAutoTestSettingsConnectionOnEnter();
 }
 
 function renderSettingsTest() {
@@ -2413,6 +2421,21 @@ async function saveSettings(event) {
   }
 }
 
+function maybeAutoTestSettingsConnectionOnEnter() {
+  if (state.currentTab !== 'settings') {
+    return;
+  }
+  if (!state.settings?.cloudSyncEnabled) {
+    return;
+  }
+  if (state.settingsConnectionTestInFlight) {
+    return;
+  }
+  testSettingsConnection().catch((err) => {
+    setStatusKey('settings.testFailedRequest', { message: err.message }, true);
+  });
+}
+
 async function clearApiKey() {
   const yes = confirm(t('settings.clearConfirm'));
   if (!yes) {
@@ -2432,6 +2455,10 @@ async function clearApiKey() {
 }
 
 async function testSettingsConnection() {
+  if (state.settingsConnectionTestInFlight) {
+    return;
+  }
+  state.settingsConnectionTestInFlight = true;
   const button = el('btnTestConnection');
   if (button) {
     button.disabled = true;
@@ -2453,6 +2480,7 @@ async function testSettingsConnection() {
       setStatusKey('settings.testFailed', { message: data.message || '' }, true);
     }
   } finally {
+    state.settingsConnectionTestInFlight = false;
     if (button) {
       button.disabled = false;
     }
@@ -2739,8 +2767,9 @@ function bindEvents() {
   el('btnEditApiKey').addEventListener('click', () => {
     state.settingsApiKeyEditMode = true;
     renderSettings();
+    const panel = el('settingsApiKeyEditPanel');
     const input = el('settingApiKey');
-    if (input && !input.hidden && !input.disabled) {
+    if (panel && !panel.hidden && input && !input.disabled) {
       input.focus();
     }
   });

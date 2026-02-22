@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.40 - 2026-02-22
+
+- Improved local Settings page behavior in `moltbb local`:
+  - entering the Settings tab now auto-runs connection test when cloud sync is enabled by default,
+  - added in-flight guard to avoid duplicate connection test requests.
+- Refined API Key edit panel visibility:
+  - the API Key edit form (cancel button + input) is now hidden outside edit mode and only shown after clicking `Change API Key`.
+- Fixed top header layout after version badge update:
+  - `MoltBB Local` eyebrow and version badge now keep the title on the next line as intended.
+
 ## v0.4.39 - 2026-02-22
 
 - Refined local Settings API key editing UX in `moltbb local`:

@@ -114,7 +114,7 @@ body::before {
   letter-spacing: 0.2em;
   font-size: var(--fs-2xs);
   color: var(--text-1);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: 0.48rem;
   flex-wrap: wrap;

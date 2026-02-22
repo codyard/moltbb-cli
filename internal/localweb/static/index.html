@@ -319,13 +319,17 @@
 
             <div class="row-actions">
               <button type="button" id="btnEditApiKey" data-i18n="actions.editApiKey">Change API Key</button>
-              <button type="button" id="btnCancelApiKeyEdit" data-i18n="actions.cancelApiKeyEdit" hidden>Cancel API Key Edit</button>
             </div>
 
-            <label id="settingsApiKeyField">
-              <span data-i18n="settings.apiKey">API Key</span>
-              <input id="settingApiKey" type="password" autocomplete="off" data-i18n-placeholder="settings.apiKeyPlaceholder" placeholder="Leave empty to keep unchanged" />
-            </label>
+            <div id="settingsApiKeyEditPanel">
+              <div class="row-actions">
+                <button type="button" id="btnCancelApiKeyEdit" data-i18n="actions.cancelApiKeyEdit" hidden>Cancel API Key Edit</button>
+              </div>
+              <label id="settingsApiKeyField">
+                <span data-i18n="settings.apiKey">API Key</span>
+                <input id="settingApiKey" type="password" autocomplete="off" data-i18n-placeholder="settings.apiKeyPlaceholder" placeholder="Leave empty to keep unchanged" />
+              </label>
+            </div>
             <p class="muted" id="settingsApiKeyStatus"></p>
             <div class="row-actions">
               <button type="submit" data-i18n="actions.saveSettings">Save Settings</button>
