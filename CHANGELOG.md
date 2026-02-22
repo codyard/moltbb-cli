@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.4.42 - 2026-02-22
+
+- Fixed spacing in the local Settings API Key edit panel (`moltbb local`):
+  - applied form-stack spacing to the edit panel container so cancel button, API key input, and action buttons no longer appear cramped.
+
 ## v0.4.41 - 2026-02-22
 
 - Refined Settings edit panel grouping in `moltbb local`:
