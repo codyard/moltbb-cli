@@ -44,6 +44,7 @@ const MESSAGES = {
     'actions.generate': 'Generate',
     'actions.saveSettings': 'Save Settings',
     'actions.testConnection': 'Test Connection',
+    'actions.runCliStatus': 'Run moltbb status',
     'actions.editApiKey': 'Change API Key',
     'actions.cancelApiKeyEdit': 'Cancel API Key Edit',
     'actions.clearApiKey': 'Clear API Key',
@@ -204,6 +205,10 @@ const MESSAGES = {
     'settings.metaSyncOn': 'Cloud sync: ON',
     'settings.metaSyncOff': 'Cloud sync: OFF',
     'settings.testNotRun': 'Connection test not run yet.',
+    'settings.cliStatusNotRun': 'CLI status not run yet.',
+    'settings.cliStatusRunning': 'Running `moltbb status`...',
+    'settings.cliStatusMetaOk': '`moltbb status` completed at {time} (exit {code}).',
+    'settings.cliStatusMetaFail': '`moltbb status` failed at {time} (exit {code}).',
     'settings.testing': 'Testing connection...',
     'settings.testSuccess': 'Connection test succeeded.',
     'settings.testFailed': 'Connection test failed: {message}',
@@ -216,6 +221,7 @@ const MESSAGES = {
     'settings.testFailedRequest': 'Connection test request failed: {message}',
     'settings.saveFailed': 'Save settings failed: {message}',
     'settings.clearFailed': 'Clear API key failed: {message}',
+    'settings.cliStatusRequestFailed': 'Run moltbb status failed: {message}',
     'reindex.done': 'Reindex completed: {count} diaries.',
     'reindex.failed': 'Reindex failed: {message}',
     'status.loading': 'Loading...',
@@ -264,6 +270,7 @@ const MESSAGES = {
     'actions.generate': '生成',
     'actions.saveSettings': '保存设置',
     'actions.testConnection': '测试连接',
+    'actions.runCliStatus': '执行 moltbb status',
     'actions.editApiKey': '修改 API Key',
     'actions.cancelApiKeyEdit': '取消修改 API Key',
     'actions.clearApiKey': '清除 API Key',
@@ -424,6 +431,10 @@ const MESSAGES = {
     'settings.metaSyncOn': '云同步：已开启',
     'settings.metaSyncOff': '云同步：已关闭',
     'settings.testNotRun': '尚未执行连接测试。',
+    'settings.cliStatusNotRun': '尚未执行 CLI 状态检查。',
+    'settings.cliStatusRunning': '正在执行 `moltbb status`...',
+    'settings.cliStatusMetaOk': '`moltbb status` 已完成（{time}，退出码 {code}）。',
+    'settings.cliStatusMetaFail': '`moltbb status` 执行失败（{time}，退出码 {code}）。',
     'settings.testing': '正在测试连接...',
     'settings.testSuccess': '连接测试成功。',
     'settings.testFailed': '连接测试失败: {message}',
@@ -436,6 +447,7 @@ const MESSAGES = {
     'settings.testFailedRequest': '连接测试请求失败: {message}',
     'settings.saveFailed': '保存设置失败: {message}',
     'settings.clearFailed': '清除 API Key 失败: {message}',
+    'settings.cliStatusRequestFailed': '执行 moltbb status 失败: {message}',
     'reindex.done': '索引重建完成: {count} 篇日记。',
     'reindex.failed': '重建索引失败: {message}',
     'status.loading': '加载中...',
@@ -484,8 +496,10 @@ const state = {
   currentPromptDetail: null,
   settings: null,
   settingsTest: null,
+  settingsCliStatus: null,
   settingsApiKeyEditMode: false,
   settingsConnectionTestInFlight: false,
+  settingsCliStatusInFlight: false,
   apiBaseUrl: '',
   locale: 'en',
   fontSize: 'small',
@@ -1561,11 +1575,13 @@ async function loadSettings() {
 function renderSettingsTest() {
   const target = el('settingsTestResult');
   if (!target) {
+    renderSettingsCLIStatus();
     return;
   }
   if (!state.settingsTest) {
     target.textContent = t('settings.testNotRun');
     target.style.color = '';
+    renderSettingsCLIStatus();
     return;
   }
 
@@ -1577,6 +1593,38 @@ function renderSettingsTest() {
     target.textContent = t('settings.testResultFail', { message });
     target.style.color = 'var(--coral)';
   }
+  renderSettingsCLIStatus();
+}
+
+function renderSettingsCLIStatus() {
+  const meta = el('settingsCliStatusMeta');
+  const output = el('settingsCliStatusOutput');
+  if (!meta || !output) {
+    return;
+  }
+  if (state.settingsCliStatusInFlight) {
+    meta.textContent = t('settings.cliStatusRunning');
+    meta.style.color = '';
+    output.hidden = state.settingsCliStatus == null;
+    return;
+  }
+  if (!state.settingsCliStatus) {
+    meta.textContent = t('settings.cliStatusNotRun');
+    meta.style.color = '';
+    output.hidden = true;
+    output.textContent = '';
+    return;
+  }
+
+  const result = state.settingsCliStatus;
+  const exitCode = Number.isFinite(result.exitCode) ? result.exitCode : (result.success ? 0 : -1);
+  const timeValue = String(result.ranAt || '').trim() || '-';
+  meta.textContent = result.success
+    ? t('settings.cliStatusMetaOk', { time: timeValue, code: exitCode })
+    : t('settings.cliStatusMetaFail', { time: timeValue, code: exitCode });
+  meta.style.color = result.success ? 'var(--lime)' : 'var(--coral)';
+  output.textContent = String(result.output || result.message || '').trim() || '-';
+  output.hidden = false;
 }
 
 function diaryCalendarParts(dateRaw) {
@@ -2512,6 +2560,36 @@ async function testSettingsConnection() {
   }
 }
 
+async function runCLIStatus() {
+  if (state.settingsCliStatusInFlight) {
+    return;
+  }
+  state.settingsCliStatusInFlight = true;
+  const button = el('btnRunCliStatus');
+  if (button) {
+    button.disabled = true;
+  }
+  renderSettingsCLIStatus();
+  setStatusKey('settings.cliStatusRunning');
+
+  try {
+    const data = await api('/settings/cli-status', { method: 'POST' });
+    state.settingsCliStatus = data;
+    renderSettingsCLIStatus();
+    if (data.success) {
+      setStatusKey('status.ready');
+    } else {
+      setStatusKey('settings.cliStatusRequestFailed', { message: data.message || 'command failed' }, true);
+    }
+  } finally {
+    state.settingsCliStatusInFlight = false;
+    if (button) {
+      button.disabled = false;
+    }
+    renderSettingsCLIStatus();
+  }
+}
+
 function resolvePageTitle(tabName) {
   const safeTab = String(tabName || '').trim();
   if (!safeTab) {
@@ -2783,6 +2861,10 @@ function bindEvents() {
 
   el('btnTestConnection').addEventListener('click', () => {
     testSettingsConnection().catch((err) => setStatusKey('settings.testFailedRequest', { message: err.message }, true));
+  });
+
+  el('btnRunCliStatus').addEventListener('click', () => {
+    runCLIStatus().catch((err) => setStatusKey('settings.cliStatusRequestFailed', { message: err.message }, true));
   });
 
   el('btnClearApiKey').addEventListener('click', () => {

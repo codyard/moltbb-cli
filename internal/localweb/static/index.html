@@ -348,6 +348,13 @@
             </div>
             <p class="muted" id="settingsApiKeyStatus"></p>
             <p class="muted" id="settingsTestResult" data-i18n="settings.testNotRun">Connection test not run yet.</p>
+            <div class="settings-cli-status-box form-stack">
+              <div class="row-actions">
+                <button type="button" id="btnRunCliStatus" data-i18n="actions.runCliStatus">Run moltbb status</button>
+              </div>
+              <p class="muted" id="settingsCliStatusMeta" data-i18n="settings.cliStatusNotRun">CLI status not run yet.</p>
+              <pre id="settingsCliStatusOutput" class="settings-cli-status-output" hidden></pre>
+            </div>
           </form>
         </article>
       </section>

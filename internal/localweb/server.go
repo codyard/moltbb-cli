@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -139,6 +140,15 @@ type settingsConnectionTestResponse struct {
 	KeySource     string `json:"keySource,omitempty"`
 	Message       string `json:"message"`
 	CheckedAt     string `json:"checkedAt"`
+}
+
+type settingsCLIStatusResponse struct {
+	Success  bool   `json:"success"`
+	Command  string `json:"command"`
+	Output   string `json:"output"`
+	ExitCode int    `json:"exitCode"`
+	RanAt    string `json:"ranAt"`
+	Message  string `json:"message,omitempty"`
 }
 
 type generatePacketRequest struct {
@@ -341,6 +351,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/state", s.handleState)
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/settings/test-connection", s.handleSettingsConnectionTest)
+	s.mux.HandleFunc("/api/settings/cli-status", s.handleSettingsCLIStatus)
 	s.mux.HandleFunc("/api/diaries", s.handleDiaries)
 	s.mux.HandleFunc("/api/diaries/history", s.handleDiaryHistory)
 	s.mux.HandleFunc("/api/diaries/reindex", s.handleReindex)
@@ -487,6 +498,73 @@ func (s *Server) handleSettingsConnectionTest(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleSettingsCLIStatus(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodPost) {
+		return
+	}
+
+	result, err := s.runCLIStatus()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) runCLIStatus() (settingsCLIStatusResponse, error) {
+	exePath, err := os.Executable()
+	if err != nil {
+		return settingsCLIStatusResponse{}, fmt.Errorf("resolve executable path: %w", err)
+	}
+	exePath = strings.TrimSpace(exePath)
+	if exePath == "" {
+		return settingsCLIStatusResponse{}, errors.New("executable path is empty")
+	}
+
+	ranAt := time.Now().UTC().Format(time.RFC3339)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, exePath, "status")
+	outputBytes, runErr := cmd.CombinedOutput()
+	output := strings.TrimRight(string(outputBytes), "\n")
+	exitCode := 0
+	if cmd.ProcessState != nil {
+		exitCode = cmd.ProcessState.ExitCode()
+	}
+
+	resp := settingsCLIStatusResponse{
+		Success:  runErr == nil,
+		Command:  "moltbb status",
+		Output:   output,
+		ExitCode: exitCode,
+		RanAt:    ranAt,
+	}
+
+	if runErr == nil {
+		if strings.TrimSpace(resp.Output) == "" {
+			resp.Output = "(no output)"
+		}
+		return resp, nil
+	}
+
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		resp.Success = false
+		resp.Message = "moltbb status timed out"
+		if strings.TrimSpace(resp.Output) == "" {
+			resp.Output = resp.Message
+		}
+		return resp, nil
+	}
+
+	resp.Success = false
+	resp.Message = runErr.Error()
+	if strings.TrimSpace(resp.Output) == "" {
+		resp.Output = runErr.Error()
+	}
+	return resp, nil
 }
 
 func (s *Server) handleReindex(w http.ResponseWriter, r *http.Request) {

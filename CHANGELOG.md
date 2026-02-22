@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.48 - 2026-02-22
+
+- Added local Settings command-status runner in `moltbb local`:
+  - new Settings action button to execute `moltbb status` from the local web UI,
+  - displays command output, exit code, and run time inside a styled result panel.
+- Added local API endpoint for Settings CLI status:
+  - `POST /api/settings/cli-status` runs the current CLI executable with `status` and returns combined output.
+
 ## v0.4.47 - 2026-02-22
 
 - Enhanced Settings onboarding for unbound owners in `moltbb local`:
