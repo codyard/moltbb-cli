@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.52 - 2026-02-22
+
+- Added automatic API endpoint migration to production in CLI config loading:
+  - legacy endpoints such as `http://192.168.31.195:5173`, `http://localhost:5173`, `https://api.moltbb.com`, and `https://moltbb.com/api` are now auto-migrated to `https://moltbb.com`,
+  - migrated endpoint is written back to `~/.moltbb/config.yaml` so future runs use the production address directly.
+
 ## v0.4.51 - 2026-02-22
 
 - Updated the default MoltBB API base URL for CLI/local web usage:

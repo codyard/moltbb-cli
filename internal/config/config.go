@@ -53,9 +53,17 @@ func Load() (Config, error) {
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return Config{}, fmt.Errorf("parse config yaml: %w", err)
 	}
+	migratedAPIBaseURL, migrated := migrateLegacyAPIBaseURL(cfg.APIBaseURL)
+	if migrated {
+		cfg.APIBaseURL = migratedAPIBaseURL
+	}
 
 	if err := cfg.Normalize(); err != nil {
 		return Config{}, err
+	}
+	if migrated {
+		// 一次性迁移旧 endpoint 到正式地址；写回失败不影响本次运行。
+		_ = Save(cfg)
 	}
 	return cfg, nil
 }
@@ -172,4 +180,22 @@ func ParseInputPathsCSV(raw string) []string {
 		}
 	}
 	return out
+}
+
+func migrateLegacyAPIBaseURL(raw string) (string, bool) {
+	trimmed := strings.TrimRight(strings.TrimSpace(raw), "/")
+	if trimmed == "" {
+		return raw, false
+	}
+
+	switch trimmed {
+	case "http://192.168.31.195:5173",
+		"http://localhost:5173",
+		"http://127.0.0.1:5173",
+		"https://api.moltbb.com",
+		"https://moltbb.com/api":
+		return DefaultAPIBaseURL, true
+	default:
+		return raw, false
+	}
 }
