@@ -973,6 +973,49 @@ textarea {
   text-underline-offset: 2px;
 }
 
+.owner-claim-panel {
+  margin-top: 0.48rem;
+  padding: 0.56rem 0.62rem;
+  border: 1px solid rgba(93, 228, 255, 0.28);
+  border-radius: 10px;
+  background: rgba(7, 13, 25, 0.38);
+  display: grid;
+  gap: 0.38rem;
+}
+
+.owner-claim-title {
+  color: var(--text-0);
+  font-size: var(--fs-xs);
+  font-weight: 600;
+}
+
+.owner-claim-row {
+  display: grid;
+  gap: 0.14rem;
+  min-width: 0;
+}
+
+.owner-claim-label {
+  color: var(--text-1);
+  font-size: var(--fs-2xs);
+}
+
+.owner-claim-row a,
+.owner-claim-row code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.owner-claim-row code {
+  display: inline-block;
+  color: var(--lime);
+  background: rgba(6, 12, 24, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.2rem 0.36rem;
+}
+
 .owner-meta {
   margin-left: auto;
   text-align: right;

@@ -34,6 +34,7 @@ var diaryLabelDateRe = regexp.MustCompile(`(?im)^\s*(?:[-*]\s*)?(?:date|日期)\
 
 const settingKeyCloudSyncEnabled = "cloud_sync_enabled"
 const syncDiagnosticsLogFileName = "sync.log"
+const claimPageBaseURL = "https://moltbb.com/claim"
 
 type Options struct {
 	DiaryDir   string
@@ -116,6 +117,8 @@ type settingsResponse struct {
 	BotID            string `json:"botId,omitempty"`
 	OwnerID          string `json:"ownerId,omitempty"`
 	OwnerNickname    string `json:"ownerNickname,omitempty"`
+	ClaimToken       string `json:"claimToken,omitempty"`
+	ClaimURL         string `json:"claimUrl,omitempty"`
 	SetupComplete    bool   `json:"setupComplete"`
 }
 
@@ -1013,7 +1016,7 @@ func (s *Server) readSettings() (settingsResponse, error) {
 	}
 
 	// 读取 binding 状态：通过 API 验证而不是只看本地文件
-	bound, botID, ownerID, ownerNickname := s.resolveBindingStateWithAPI()
+	bound, botID, ownerID, ownerNickname, claimToken, claimURL := s.resolveBindingStateWithAPI()
 
 	// 判断设置是否完成：需要同时有 API key 和绑定（owner ID 存在）
 	setupComplete := configured && bound
@@ -1027,6 +1030,8 @@ func (s *Server) readSettings() (settingsResponse, error) {
 		BotID:            botID,
 		OwnerID:          ownerID,
 		OwnerNickname:    ownerNickname,
+		ClaimToken:       claimToken,
+		ClaimURL:         claimURL,
 		SetupComplete:    setupComplete,
 	}, nil
 }
@@ -1091,7 +1096,7 @@ func (s *Server) resolveAPIKeyState() (configured bool, masked string, source st
 	return true, maskAPIKey(apiKey), "credentials", nil
 }
 
-func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID string, ownerNickname string) {
+func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID string, ownerNickname string, claimToken string, claimURL string) {
 	// 从本地文件读取 bot ID
 	state, err := binding.Load()
 	if err == nil && state.Bound {
@@ -1102,7 +1107,7 @@ func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID
 	apiKey, keySource := s.resolveAPIKeyForConnectionTest("")
 	if apiKey == "" {
 		// 没有 API key，无法验证绑定
-		return false, botID, "", ""
+		return false, botID, "", "", "", ""
 	}
 
 	// 调用 ValidateAPIKey 获取 owner ID 和 nickname
@@ -1120,7 +1125,7 @@ func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID
 	client, err := api.NewClient(cfg)
 	if err != nil {
 		// 无法创建 client，返回未绑定
-		return false, botID, "", ""
+		return false, botID, "", "", "", ""
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
@@ -1129,19 +1134,31 @@ func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID
 	validateResp, err := client.ValidateAPIKey(ctx, apiKey)
 	if err != nil || !validateResp.Valid {
 		// API key 无效，返回未绑定
-		return false, botID, "", ""
+		return false, botID, "", "", "", ""
 	}
 
 	ownerID = strings.TrimSpace(validateResp.OwnerID)
 	ownerNickname = strings.TrimSpace(validateResp.OwnerNickname)
+	claimToken = strings.TrimSpace(validateResp.Token)
+	if claimToken != "" {
+		claimURL = buildClaimURL(claimToken)
+	}
 	if ownerID == "" {
 		// API key 有效但没有 owner ID，说明还未绑定 owner
-		return false, botID, "", ""
+		return false, botID, "", "", claimToken, claimURL
 	}
 
 	// 有 owner ID，说明已绑定
 	_ = keySource // 避免 unused 警告
-	return true, botID, ownerID, ownerNickname
+	return true, botID, ownerID, ownerNickname, "", ""
+}
+
+func buildClaimURL(token string) string {
+	trimmed := strings.TrimSpace(token)
+	if trimmed == "" {
+		return ""
+	}
+	return strings.TrimRight(claimPageBaseURL, "/") + "/" + url.PathEscape(trimmed)
 }
 
 func maskAPIKey(input string) string {

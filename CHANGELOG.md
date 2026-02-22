@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.47 - 2026-02-22
+
+- Enhanced Settings onboarding for unbound owners in `moltbb local`:
+  - settings API now returns `claimToken` and generated `claimUrl` (`https://moltbb.com/claim/{token}`) when API key is valid but owner is not yet bound,
+  - Settings UI shows an extra claim info panel with Claim Link and Claim Token in the “Binding Required” state.
+
 ## v0.4.46 - 2026-02-22
 
 - Refined diary list item layout robustness in `moltbb local`:

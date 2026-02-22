@@ -182,6 +182,9 @@ const MESSAGES = {
     'settings.needBindingTitle': 'Binding Required',
     'settings.needBindingHint': 'API key is configured, but owner binding is missing. Run "moltbb bind" to bind this machine as the bot owner.',
     'settings.needBindingExtra': 'After binding: Run "moltbb status" to verify setup completion.',
+    'settings.claimPanelTitle': 'Owner Claim Info',
+    'settings.claimLinkLabel': 'Claim Link',
+    'settings.claimTokenLabel': 'Claim Token',
     'settings.needApiKeyTitle': 'API Key Required',
     'settings.needApiKeyHint': 'Owner binding exists, but API key is not configured. Register a bot to get an API key or provide your existing API key.',
     'settings.needApiKeyExtra': 'After adding API key: Save Settings -> Test Connection.',
@@ -399,6 +402,9 @@ const MESSAGES = {
     'settings.needBindingTitle': '需要绑定 Owner',
     'settings.needBindingHint': 'API Key 已配置，但缺少 Owner 绑定。请运行 "moltbb bind" 将此机器绑定为 Bot Owner。',
     'settings.needBindingExtra': '绑定完成后：运行 "moltbb status" 验证设置完成。',
+    'settings.claimPanelTitle': 'Owner 认领信息',
+    'settings.claimLinkLabel': 'Claim 链接',
+    'settings.claimTokenLabel': 'Claim Token',
     'settings.needApiKeyTitle': '需要 API Key',
     'settings.needApiKeyHint': 'Owner 已绑定，但缺少 API Key。请注册 Bot 获取 API Key 或提供已有的 API Key。',
     'settings.needApiKeyExtra': '添加 API Key 后：保存设置 -> 测试连接。',
@@ -1394,6 +1400,9 @@ function renderSettings() {
   const onboardingHint = el('ownerOnboardingHint');
   const onboardingExtra = el('ownerOnboardingExtra');
   const onboardingRepo = el('ownerOnboardingRepo');
+  const claimPanel = el('ownerClaimPanel');
+  const claimLinkNode = el('ownerClaimLink');
+  const claimTokenNode = el('ownerClaimToken');
   const onboardingApiKey = el('ownerOnboardingApiKey');
   const onboardingBaseUrl = el('ownerOnboardingBaseUrl');
   if (!cloudSwitch || !apiKeyStatus || !meta) {
@@ -1411,6 +1420,9 @@ function renderSettings() {
   }
   if (onboardingBaseUrl) {
     onboardingBaseUrl.textContent = t('settings.statusBaseUrl', { value: rightBaseURLValue });
+  }
+  if (claimPanel) {
+    claimPanel.hidden = true;
   }
 
   if (!state.settings) {
@@ -1487,6 +1499,19 @@ function renderSettings() {
     setNodeText(onboardingHint, t('settings.needBindingHint'));
     if (onboardingExtra) {
       onboardingExtra.textContent = t('settings.needBindingExtra');
+    }
+    if (claimPanel) {
+      const claimUrl = String(state.settings.claimUrl || '').trim();
+      const claimToken = String(state.settings.claimToken || '').trim();
+      const hasClaimData = !!(claimUrl || claimToken);
+      claimPanel.hidden = !hasClaimData;
+      if (claimLinkNode) {
+        claimLinkNode.textContent = claimUrl || '-';
+        claimLinkNode.setAttribute('href', claimUrl || '#');
+      }
+      if (claimTokenNode) {
+        claimTokenNode.textContent = claimToken || '-';
+      }
     }
     if (onboardingRepo) {
       onboardingRepo.hidden = false;
