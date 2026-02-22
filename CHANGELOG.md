@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.46 - 2026-02-22
+
+- Refined diary list item layout robustness in `moltbb local`:
+  - reserved stable scrollbar gutter space for list panes to avoid visual clipping near the right edge,
+  - constrained list item/card widths and key flex rows to stay within the pane width on narrow layouts.
+
 ## v0.4.45 - 2026-02-22
 
 - Refined local list pane behavior and styling in `moltbb local`:

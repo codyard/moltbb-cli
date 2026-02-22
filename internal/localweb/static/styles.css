@@ -713,9 +713,10 @@ textarea {
   max-height: calc(66vh - 110px);
   overflow-y: auto;
   overflow-x: hidden;
+  scrollbar-gutter: stable;
   display: grid;
   gap: 0.52rem;
-  padding-right: 0.18rem;
+  padding-right: 0.34rem;
   scrollbar-width: thin;
   scrollbar-color: rgba(169, 182, 211, 0.45) rgba(255, 255, 255, 0.06);
 }
@@ -756,6 +757,9 @@ textarea {
 }
 
 .item {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 12px;
   padding: 0.62rem 0.68rem;
@@ -796,6 +800,7 @@ textarea {
   display: flex;
   align-items: flex-start;
   gap: 0.64rem;
+  min-width: 0;
 }
 
 .diary-item .diary-item-main {
@@ -808,6 +813,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0.4rem;
+  min-width: 0;
 }
 
 .diary-item .diary-item-row h3 {
