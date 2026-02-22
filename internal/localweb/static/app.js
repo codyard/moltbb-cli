@@ -44,6 +44,8 @@ const MESSAGES = {
     'actions.generate': 'Generate',
     'actions.saveSettings': 'Save Settings',
     'actions.testConnection': 'Test Connection',
+    'actions.editApiKey': 'Change API Key',
+    'actions.cancelApiKeyEdit': 'Cancel API Key Edit',
     'actions.clearApiKey': 'Clear API Key',
     'diary.listTitle': 'Diary List',
     'diary.detailTitle': 'Diary Detail',
@@ -176,7 +178,7 @@ const MESSAGES = {
     'settings.ownerConfiguredExtra': 'CLI GitHub project:',
     'settings.setupCompleteTitle': 'Setup Complete',
     'settings.setupCompleteHint': 'API key is configured and bot owner is bound. You can now use all CLI features.',
-    'settings.setupCompleteExtra': 'Owner: {owner} · CLI GitHub project:',
+    'settings.setupCompleteExtra': 'Owner: {owner}',
     'settings.needBindingTitle': 'Binding Required',
     'settings.needBindingHint': 'API key is configured, but owner binding is missing. Run "moltbb bind" to bind this machine as the bot owner.',
     'settings.needBindingExtra': 'After binding: Run "moltbb status" to verify setup completion.',
@@ -259,6 +261,8 @@ const MESSAGES = {
     'actions.generate': '生成',
     'actions.saveSettings': '保存设置',
     'actions.testConnection': '测试连接',
+    'actions.editApiKey': '修改 API Key',
+    'actions.cancelApiKeyEdit': '取消修改 API Key',
     'actions.clearApiKey': '清除 API Key',
     'diary.listTitle': '日记列表',
     'diary.detailTitle': '日记详情',
@@ -391,7 +395,7 @@ const MESSAGES = {
     'settings.ownerConfiguredExtra': 'CLI GitHub 项目地址：',
     'settings.setupCompleteTitle': '设置完成',
     'settings.setupCompleteHint': 'API Key 已配置且 Bot Owner 已绑定，所有 CLI 功能可正常使用。',
-    'settings.setupCompleteExtra': 'Owner: {owner} · CLI GitHub 项目地址：',
+    'settings.setupCompleteExtra': 'Owner: {owner}',
     'settings.needBindingTitle': '需要绑定 Owner',
     'settings.needBindingHint': 'API Key 已配置，但缺少 Owner 绑定。请运行 "moltbb bind" 将此机器绑定为 Bot Owner。',
     'settings.needBindingExtra': '绑定完成后：运行 "moltbb status" 验证设置完成。',
@@ -474,6 +478,7 @@ const state = {
   currentPromptDetail: null,
   settings: null,
   settingsTest: null,
+  settingsApiKeyEditMode: false,
   apiBaseUrl: '',
   locale: 'en',
   fontSize: 'small',
@@ -1335,6 +1340,44 @@ function setNodeText(node, text) {
   node.hidden = value.trim() === '';
 }
 
+function shouldShowSettingsApiKeyEditor() {
+  if (!state.settings || !state.settings.apiKeyConfigured) {
+    return true;
+  }
+  return !!state.settingsApiKeyEditMode;
+}
+
+function renderSettingsApiKeyEditor() {
+  const field = el('settingsApiKeyField');
+  const input = el('settingApiKey');
+  const editButton = el('btnEditApiKey');
+  const cancelButton = el('btnCancelApiKeyEdit');
+  const clearButton = el('btnClearApiKey');
+  if (!field || !input) {
+    return;
+  }
+
+  const apiKeyConfigured = !!state.settings?.apiKeyConfigured;
+  const showEditor = shouldShowSettingsApiKeyEditor();
+
+  field.hidden = !showEditor;
+  input.disabled = !showEditor;
+
+  if (!showEditor) {
+    input.value = '';
+  }
+
+  if (editButton) {
+    editButton.hidden = !apiKeyConfigured || showEditor;
+  }
+  if (cancelButton) {
+    cancelButton.hidden = !apiKeyConfigured || !showEditor;
+  }
+  if (clearButton) {
+    clearButton.hidden = !apiKeyConfigured || !showEditor;
+  }
+}
+
 function renderSettings() {
   const cloudSwitch = el('settingCloudSync');
   const apiKeyStatus = el('settingsApiKeyStatus');
@@ -1349,6 +1392,8 @@ function renderSettings() {
   if (!cloudSwitch || !apiKeyStatus || !meta) {
     return;
   }
+
+  renderSettingsApiKeyEditor();
 
   const rightApiKeyValue = state.settings?.apiKeyConfigured
     ? (state.settings.apiKeyMasked || '')
@@ -2342,7 +2387,7 @@ async function saveSettings(event) {
     cloudSyncEnabled: !!el('settingCloudSync').checked,
   };
   const apiKey = el('settingApiKey').value.trim();
-  if (apiKey) {
+  if (shouldShowSettingsApiKeyEditor() && apiKey) {
     payload.apiKey = apiKey;
   }
 
@@ -2352,6 +2397,9 @@ async function saveSettings(event) {
   });
   state.settings = data;
   state.settingsTest = null;
+  if (payload.apiKey) {
+    state.settingsApiKeyEditMode = false;
+  }
   el('settingApiKey').value = '';
   renderSettings();
   setStatusKey('settings.saved');
@@ -2377,6 +2425,7 @@ async function clearApiKey() {
   });
   state.settings = data;
   state.settingsTest = null;
+  state.settingsApiKeyEditMode = true;
   el('settingApiKey').value = '';
   renderSettings();
   setStatusKey('settings.cleared');
@@ -2685,6 +2734,24 @@ function bindEvents() {
 
   el('btnClearApiKey').addEventListener('click', () => {
     clearApiKey().catch((err) => setStatusKey('settings.clearFailed', { message: err.message }, true));
+  });
+
+  el('btnEditApiKey').addEventListener('click', () => {
+    state.settingsApiKeyEditMode = true;
+    renderSettings();
+    const input = el('settingApiKey');
+    if (input && !input.hidden && !input.disabled) {
+      input.focus();
+    }
+  });
+
+  el('btnCancelApiKeyEdit').addEventListener('click', () => {
+    state.settingsApiKeyEditMode = false;
+    const input = el('settingApiKey');
+    if (input) {
+      input.value = '';
+    }
+    renderSettings();
   });
 
   el('btnDiaryViewMode').addEventListener('click', () => {

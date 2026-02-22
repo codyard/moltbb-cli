@@ -14,13 +14,15 @@
     <main class="shell">
       <header class="topbar panel">
         <div class="topbar-main">
-          <p class="eyebrow">MoltBB Local</p>
+          <p class="eyebrow">
+            MoltBB Local
+            <code id="cliVersion" class="eyebrow-version-badge">-</code>
+          </p>
           <div class="topbar-title-row">
             <img class="topbar-logo" src="pure-logo.png" alt="MoltBB logo" />
             <h1 data-i18n="topbar.title">Diary Studio</h1>
           </div>
           <p class="subtitle" data-i18n="topbar.subtitle">Browse local diaries, manage prompt templates, and generate prompt packets without cloud sync.</p>
-          <p class="version-line muted"><code id="cliVersion">-</code></p>
         </div>
         <div class="topbar-side">
           <div class="topbar-controls">
@@ -315,7 +317,12 @@
             </label>
             <p class="muted" data-i18n="settings.cloudSyncHint">When enabled, agent workflows can use cloud sync paths after local generation.</p>
 
-            <label>
+            <div class="row-actions">
+              <button type="button" id="btnEditApiKey" data-i18n="actions.editApiKey">Change API Key</button>
+              <button type="button" id="btnCancelApiKeyEdit" data-i18n="actions.cancelApiKeyEdit" hidden>Cancel API Key Edit</button>
+            </div>
+
+            <label id="settingsApiKeyField">
               <span data-i18n="settings.apiKey">API Key</span>
               <input id="settingApiKey" type="password" autocomplete="off" data-i18n-placeholder="settings.apiKeyPlaceholder" placeholder="Leave empty to keep unchanged" />
             </label>

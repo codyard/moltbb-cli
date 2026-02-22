@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## v0.4.39 - 2026-02-22
+
+- Refined local Settings API key editing UX in `moltbb local`:
+  - API key input is now a two-step action (click `Change API Key` before editing),
+  - added cancel action to collapse the API key editor and reduce accidental edits.
+- Simplified completed onboarding summary in Settings:
+  - removed the `CLI GitHub project` label text while keeping the GitHub link on the next line.
+- Moved CLI version display to the top header eyebrow:
+  - version now renders next to `MoltBB Local` with a highlighted badge style.
+
 ## v0.4.38 - 2026-02-22
 
 - Improved local Settings binding detection in `moltbb local`:
