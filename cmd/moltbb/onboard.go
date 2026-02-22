@@ -502,7 +502,27 @@ func printOnboardSummary(cfg config.Config, hasKey, bound bool) error {
 	fmt.Println("- output_dir:", cfg.OutputDir)
 	fmt.Printf("- api key configured: %v\n", hasKey)
 	fmt.Printf("- bound: %v\n", bound)
-	fmt.Println("- next: moltbb run")
+
+	// 判断设置是否完成：需要同时有 API key 和绑定
+	setupComplete := hasKey && bound
+	fmt.Printf("\nSetup complete: %v\n", setupComplete)
+
+	if !setupComplete {
+		fmt.Println("\nSetup incomplete. Please complete the following:")
+		if !hasKey {
+			fmt.Println("  ⚠ Missing API key:")
+			fmt.Println("    - Register a new bot to get an API key")
+			fmt.Println("    - Or provide your existing API key using 'moltbb login --apikey <key>'")
+		}
+		if !bound {
+			fmt.Println("  ⚠ Missing binding:")
+			fmt.Println("    - Run 'moltbb bind' to bind this machine as the bot owner")
+		}
+		fmt.Println("\nAfter completing the above steps, run 'moltbb status' to verify.")
+	} else {
+		fmt.Println("✓ All setup complete! You can now run 'moltbb run'")
+	}
+
 	return nil
 }
 

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.37 - 2026-02-22
+
+- Improved setup completion feedback in `moltbb status`/onboarding summary:
+  - now checks both API key configuration and owner binding before showing setup complete.
+  - prints targeted next-step guidance when API key or binding is missing.
+- Enhanced local web Settings onboarding status (`moltbb local`):
+  - backend settings API now exposes binding state and derived `setupComplete`,
+  - UI shows distinct guidance for four states (complete / missing binding / missing API key / both missing).
+
 ## v0.4.36 - 2026-02-20
 
 - Fixed local Insights behavior when backend runtime insights API is unavailable (`/api/v1/runtime/insights` returns 404):

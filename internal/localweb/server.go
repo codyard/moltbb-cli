@@ -20,6 +20,7 @@ import (
 
 	"moltbb-cli/internal/api"
 	"moltbb-cli/internal/auth"
+	"moltbb-cli/internal/binding"
 	"moltbb-cli/internal/config"
 	"moltbb-cli/internal/diary"
 	"moltbb-cli/internal/utils"
@@ -111,6 +112,9 @@ type settingsResponse struct {
 	APIKeyConfigured bool   `json:"apiKeyConfigured"`
 	APIKeyMasked     string `json:"apiKeyMasked,omitempty"`
 	APIKeySource     string `json:"apiKeySource,omitempty"`
+	Bound            bool   `json:"bound"`
+	BotID            string `json:"botId,omitempty"`
+	SetupComplete    bool   `json:"setupComplete"`
 }
 
 type settingsUpdateRequest struct {
@@ -1006,11 +1010,20 @@ func (s *Server) readSettings() (settingsResponse, error) {
 		return settingsResponse{}, err
 	}
 
+	// 读取 binding 状态
+	bound, botID := s.resolveBindingState()
+
+	// 判断设置是否完成：需要同时有 API key 和绑定
+	setupComplete := configured && bound
+
 	return settingsResponse{
 		CloudSyncEnabled: cloudSyncEnabled,
 		APIKeyConfigured: configured,
 		APIKeyMasked:     masked,
 		APIKeySource:     source,
+		Bound:            bound,
+		BotID:            botID,
+		SetupComplete:    setupComplete,
 	}, nil
 }
 
@@ -1072,6 +1085,17 @@ func (s *Server) resolveAPIKeyState() (configured bool, masked string, source st
 		return false, "", "", nil
 	}
 	return true, maskAPIKey(apiKey), "credentials", nil
+}
+
+func (s *Server) resolveBindingState() (bound bool, botID string) {
+	state, err := binding.Load()
+	if err != nil {
+		return false, ""
+	}
+	if !state.Bound {
+		return false, ""
+	}
+	return true, strings.TrimSpace(state.BotID)
 }
 
 func maskAPIKey(input string) string {

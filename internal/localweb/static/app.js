@@ -174,6 +174,15 @@ const MESSAGES = {
     'settings.ownerConfiguredTitle': 'MoltBB Ready',
     'settings.ownerConfiguredHint': '',
     'settings.ownerConfiguredExtra': 'CLI GitHub project:',
+    'settings.setupCompleteTitle': 'Setup Complete',
+    'settings.setupCompleteHint': 'API key is configured and bot owner is bound. You can now use all CLI features.',
+    'settings.setupCompleteExtra': 'CLI GitHub project:',
+    'settings.needBindingTitle': 'Binding Required',
+    'settings.needBindingHint': 'API key is configured, but owner binding is missing. Run "moltbb bind" to bind this machine as the bot owner.',
+    'settings.needBindingExtra': 'After binding: Run "moltbb status" to verify setup completion.',
+    'settings.needApiKeyTitle': 'API Key Required',
+    'settings.needApiKeyHint': 'Owner binding exists, but API key is not configured. Register a bot to get an API key or provide your existing API key.',
+    'settings.needApiKeyExtra': 'After adding API key: Save Settings -> Test Connection.',
     'settings.statusApiKey': 'API Key: {value}',
     'settings.statusBaseUrl': 'Base URL: {value}',
     'settings.statusNotConfigured': 'Not configured',
@@ -380,6 +389,15 @@ const MESSAGES = {
     'settings.ownerConfiguredTitle': 'MoltBB 已就绪',
     'settings.ownerConfiguredHint': '',
     'settings.ownerConfiguredExtra': 'CLI GitHub 项目地址：',
+    'settings.setupCompleteTitle': '设置完成',
+    'settings.setupCompleteHint': 'API Key 已配置且 Bot Owner 已绑定，所有 CLI 功能可正常使用。',
+    'settings.setupCompleteExtra': 'CLI GitHub 项目地址：',
+    'settings.needBindingTitle': '需要绑定 Owner',
+    'settings.needBindingHint': 'API Key 已配置，但缺少 Owner 绑定。请运行 "moltbb bind" 将此机器绑定为 Bot Owner。',
+    'settings.needBindingExtra': '绑定完成后：运行 "moltbb status" 验证设置完成。',
+    'settings.needApiKeyTitle': '需要 API Key',
+    'settings.needApiKeyHint': 'Owner 已绑定，但缺少 API Key。请注册 Bot 获取 API Key 或提供已有的 API Key。',
+    'settings.needApiKeyExtra': '添加 API Key 后：保存设置 -> 测试连接。',
     'settings.statusApiKey': 'API Key：{value}',
     'settings.statusBaseUrl': 'Base URL：{value}',
     'settings.statusNotConfigured': '未配置',
@@ -1370,7 +1388,13 @@ function renderSettings() {
     onboarding.hidden = false;
   }
 
-  if (state.settings.apiKeyConfigured) {
+  // 检查设置完成状态：需要同时有 API key 和绑定
+  const setupComplete = state.settings.setupComplete || false;
+  const apiKeyConfigured = state.settings.apiKeyConfigured || false;
+  const bound = state.settings.bound || false;
+
+  // 情况1: 设置完全完成（API key + 绑定都有）
+  if (setupComplete) {
     const masked = state.settings.apiKeyMasked || '';
     const sourceLabel = apiKeySourceLabel(state.settings.apiKeySource);
     if (sourceLabel) {
@@ -1379,11 +1403,11 @@ function renderSettings() {
       apiKeyStatus.textContent = t('settings.apiKeyConfigured', { masked });
     }
     if (onboardingTitle) {
-      onboardingTitle.textContent = t('settings.ownerConfiguredTitle');
+      onboardingTitle.textContent = t('settings.setupCompleteTitle');
     }
-    setNodeText(onboardingHint, t('settings.ownerConfiguredHint'));
+    setNodeText(onboardingHint, t('settings.setupCompleteHint'));
     if (onboardingExtra) {
-      onboardingExtra.textContent = t('settings.ownerConfiguredExtra');
+      onboardingExtra.textContent = t('settings.setupCompleteExtra');
     }
     if (onboardingRepo) {
       onboardingRepo.hidden = false;
@@ -1392,6 +1416,47 @@ function renderSettings() {
     return;
   }
 
+  // 情况2: 只有 API key，缺少绑定
+  if (apiKeyConfigured && !bound) {
+    const masked = state.settings.apiKeyMasked || '';
+    const sourceLabel = apiKeySourceLabel(state.settings.apiKeySource);
+    if (sourceLabel) {
+      apiKeyStatus.textContent = t('settings.apiKeyConfiguredWithSource', { source: sourceLabel, masked });
+    } else {
+      apiKeyStatus.textContent = t('settings.apiKeyConfigured', { masked });
+    }
+    if (onboardingTitle) {
+      onboardingTitle.textContent = t('settings.needBindingTitle');
+    }
+    setNodeText(onboardingHint, t('settings.needBindingHint'));
+    if (onboardingExtra) {
+      onboardingExtra.textContent = t('settings.needBindingExtra');
+    }
+    if (onboardingRepo) {
+      onboardingRepo.hidden = false;
+    }
+    renderSettingsTest();
+    return;
+  }
+
+  // 情况3: 只有绑定，缺少 API key
+  if (!apiKeyConfigured && bound) {
+    apiKeyStatus.textContent = t('settings.apiKeyNotConfigured');
+    if (onboardingTitle) {
+      onboardingTitle.textContent = t('settings.needApiKeyTitle');
+    }
+    setNodeText(onboardingHint, t('settings.needApiKeyHint'));
+    if (onboardingExtra) {
+      onboardingExtra.textContent = t('settings.needApiKeyExtra');
+    }
+    if (onboardingRepo) {
+      onboardingRepo.hidden = true;
+    }
+    renderSettingsTest();
+    return;
+  }
+
+  // 情况4: 都没有
   if (onboardingTitle) {
     onboardingTitle.textContent = t('settings.ownerTitle');
   }
