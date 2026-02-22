@@ -1218,9 +1218,15 @@ func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID
 	ownerID = strings.TrimSpace(validateResp.OwnerID)
 	ownerNickname = strings.TrimSpace(validateResp.OwnerNickname)
 	claimToken = strings.TrimSpace(validateResp.Token)
-	if claimToken != "" {
-		claimURL = buildClaimURL(claimToken)
+	if claimToken == "" {
+		if creds, loadErr := auth.Load(); loadErr == nil {
+			// 仅在 API key 一致时兜底使用本地保存的 claim token，避免展示错配 token。
+			if strings.TrimSpace(creds.APIKey) == strings.TrimSpace(apiKey) {
+				claimToken = strings.TrimSpace(creds.Token)
+			}
+		}
 	}
+	claimURL = buildClaimURL(claimToken)
 	if ownerID == "" {
 		// API key 有效但没有 owner ID，说明还未绑定 owner
 		return false, botID, "", "", claimToken, claimURL
@@ -1232,11 +1238,8 @@ func (s *Server) resolveBindingStateWithAPI() (bound bool, botID string, ownerID
 }
 
 func buildClaimURL(token string) string {
-	trimmed := strings.TrimSpace(token)
-	if trimmed == "" {
-		return ""
-	}
-	return strings.TrimRight(claimPageBaseURL, "/") + "/" + url.PathEscape(trimmed)
+	_ = strings.TrimSpace(token) // token 分开展示，这里仅保留参数兼容现有调用
+	return strings.TrimRight(claimPageBaseURL, "/")
 }
 
 func maskAPIKey(input string) string {

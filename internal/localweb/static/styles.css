@@ -983,6 +983,10 @@ textarea {
   gap: 0.38rem;
 }
 
+.settings-claim-panel {
+  margin: 0 0 0.78rem;
+}
+
 .owner-claim-title {
   color: var(--text-0);
   font-size: var(--fs-xs);
@@ -1005,6 +1009,12 @@ textarea {
   min-width: 0;
   overflow-wrap: anywhere;
   word-break: break-word;
+}
+
+.owner-claim-row a {
+  color: var(--cyan);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .owner-claim-row code {

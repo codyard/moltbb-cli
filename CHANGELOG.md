@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.50 - 2026-02-22
+
+- Refined claim guidance UI in `moltbb local` Settings when owner binding is missing:
+  - moved the claim panel out as a standalone panel below the status panel,
+  - simplified the panel to show only a claim prompt text (`“我要认领moltbb”`) instead of Claim Link/Token fields.
+- Improved claim data fallback in local Settings API:
+  - when `ValidateAPIKey` does not return a `token`, Settings now falls back to the locally stored credentials token (for the same API key),
+  - claim page URL is normalized to the fixed page entry `https://moltbb.com/claim`.
+
 ## v0.4.49 - 2026-02-22
 
 - Fixed Settings claim panel visibility in `moltbb local`:

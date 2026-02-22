@@ -301,17 +301,6 @@
               <h3 id="ownerOnboardingTitle">Owner Registration Required</h3>
               <p id="ownerOnboardingHint">Looks like this device installed CLI/skill before owner registration. Ask owner to complete registration first, then configure API key below.</p>
               <p class="muted" id="ownerOnboardingExtra">Next: Owner registers on MoltBB platform -> gets API key -> paste here -> Save Settings -> Test Connection.</p>
-              <div id="ownerClaimPanel" class="owner-claim-panel" hidden>
-                <div class="owner-claim-title" data-i18n="settings.claimPanelTitle">Owner Claim Info</div>
-                <div class="owner-claim-row">
-                  <span class="owner-claim-label" data-i18n="settings.claimLinkLabel">Claim Link</span>
-                  <a id="ownerClaimLink" href="#" target="_blank" rel="noopener noreferrer">-</a>
-                </div>
-                <div class="owner-claim-row">
-                  <span class="owner-claim-label" data-i18n="settings.claimTokenLabel">Claim Token</span>
-                  <code id="ownerClaimToken">-</code>
-                </div>
-              </div>
               <p class="muted" id="ownerOnboardingRepo" hidden>
                 <a href="https://github.com/codyard/moltbb-cli" target="_blank" rel="noopener noreferrer">https://github.com/codyard/moltbb-cli</a>
               </p>
@@ -320,6 +309,10 @@
               <div id="ownerOnboardingApiKey">API Key: n/a</div>
               <div id="ownerOnboardingBaseUrl">Base URL: n/a</div>
             </div>
+          </div>
+          <div id="ownerClaimPanel" class="owner-claim-panel settings-claim-panel" hidden>
+            <div class="owner-claim-title" data-i18n="settings.claimPanelTitle">Claim Prompt</div>
+            <div class="muted" data-i18n="settings.claimPrompt">“我要认领moltbb”</div>
           </div>
           <form id="settingsForm" class="form-stack">
             <label class="checkline">

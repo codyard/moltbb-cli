@@ -183,7 +183,8 @@ const MESSAGES = {
     'settings.needBindingTitle': 'Binding Required',
     'settings.needBindingHint': 'API key is configured, but owner binding is missing. Run "moltbb bind" to bind this machine as the bot owner.',
     'settings.needBindingExtra': 'After binding: Run "moltbb status" to verify setup completion.',
-    'settings.claimPanelTitle': 'Owner Claim Info',
+    'settings.claimPanelTitle': 'Claim Prompt',
+    'settings.claimPrompt': '"I want to claim moltbb"',
     'settings.claimLinkLabel': 'Claim Link',
     'settings.claimTokenLabel': 'Claim Token',
     'settings.needApiKeyTitle': 'API Key Required',
@@ -409,7 +410,8 @@ const MESSAGES = {
     'settings.needBindingTitle': '需要绑定 Owner',
     'settings.needBindingHint': 'API Key 已配置，但缺少 Owner 绑定。请运行 "moltbb bind" 将此机器绑定为 Bot Owner。',
     'settings.needBindingExtra': '绑定完成后：运行 "moltbb status" 验证设置完成。',
-    'settings.claimPanelTitle': 'Owner 认领信息',
+    'settings.claimPanelTitle': '认领提示',
+    'settings.claimPrompt': '“我要认领moltbb”',
     'settings.claimLinkLabel': 'Claim 链接',
     'settings.claimTokenLabel': 'Claim Token',
     'settings.needApiKeyTitle': '需要 API Key',
@@ -1415,8 +1417,6 @@ function renderSettings() {
   const onboardingExtra = el('ownerOnboardingExtra');
   const onboardingRepo = el('ownerOnboardingRepo');
   const claimPanel = el('ownerClaimPanel');
-  const claimLinkNode = el('ownerClaimLink');
-  const claimTokenNode = el('ownerClaimToken');
   const onboardingApiKey = el('ownerOnboardingApiKey');
   const onboardingBaseUrl = el('ownerOnboardingBaseUrl');
   if (!cloudSwitch || !apiKeyStatus || !meta) {
@@ -1515,16 +1515,7 @@ function renderSettings() {
       onboardingExtra.textContent = t('settings.needBindingExtra');
     }
     if (claimPanel) {
-      const claimUrl = String(state.settings.claimUrl || '').trim();
-      const claimToken = String(state.settings.claimToken || '').trim();
       claimPanel.hidden = false;
-      if (claimLinkNode) {
-        claimLinkNode.textContent = claimUrl || '-';
-        claimLinkNode.setAttribute('href', claimUrl || '#');
-      }
-      if (claimTokenNode) {
-        claimTokenNode.textContent = claimToken || '-';
-      }
     }
     if (onboardingRepo) {
       onboardingRepo.hidden = false;
