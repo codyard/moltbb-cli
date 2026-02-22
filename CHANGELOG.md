@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.41 - 2026-02-22
+
+- Refined Settings edit panel grouping in `moltbb local`:
+  - moved `Save Settings`, `Test Connection`, and `Clear API Key` buttons into the API Key edit panel,
+  - these actions now hide/show together with the API Key edit form to reduce accidental operations outside edit mode.
+
 ## v0.4.40 - 2026-02-22
 
 - Improved local Settings page behavior in `moltbb local`:
