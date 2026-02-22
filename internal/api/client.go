@@ -29,9 +29,10 @@ type envelope struct {
 }
 
 type ValidateResponse struct {
-	Valid   bool   `json:"valid"`
-	Token   string `json:"token,omitempty"`
-	OwnerID string `json:"owner_id,omitempty"`
+	Valid         bool   `json:"valid"`
+	Token         string `json:"token,omitempty"`
+	OwnerID       string `json:"owner_id,omitempty"`
+	OwnerNickname string `json:"owner_nickname,omitempty"`
 }
 
 type BindRequest struct {

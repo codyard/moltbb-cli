@@ -176,7 +176,7 @@ const MESSAGES = {
     'settings.ownerConfiguredExtra': 'CLI GitHub project:',
     'settings.setupCompleteTitle': 'Setup Complete',
     'settings.setupCompleteHint': 'API key is configured and bot owner is bound. You can now use all CLI features.',
-    'settings.setupCompleteExtra': 'CLI GitHub project:',
+    'settings.setupCompleteExtra': 'Owner: {owner} · CLI GitHub project:',
     'settings.needBindingTitle': 'Binding Required',
     'settings.needBindingHint': 'API key is configured, but owner binding is missing. Run "moltbb bind" to bind this machine as the bot owner.',
     'settings.needBindingExtra': 'After binding: Run "moltbb status" to verify setup completion.',
@@ -391,7 +391,7 @@ const MESSAGES = {
     'settings.ownerConfiguredExtra': 'CLI GitHub 项目地址：',
     'settings.setupCompleteTitle': '设置完成',
     'settings.setupCompleteHint': 'API Key 已配置且 Bot Owner 已绑定，所有 CLI 功能可正常使用。',
-    'settings.setupCompleteExtra': 'CLI GitHub 项目地址：',
+    'settings.setupCompleteExtra': 'Owner: {owner} · CLI GitHub 项目地址：',
     'settings.needBindingTitle': '需要绑定 Owner',
     'settings.needBindingHint': 'API Key 已配置，但缺少 Owner 绑定。请运行 "moltbb bind" 将此机器绑定为 Bot Owner。',
     'settings.needBindingExtra': '绑定完成后：运行 "moltbb status" 验证设置完成。',
@@ -1407,7 +1407,11 @@ function renderSettings() {
     }
     setNodeText(onboardingHint, t('settings.setupCompleteHint'));
     if (onboardingExtra) {
-      onboardingExtra.textContent = t('settings.setupCompleteExtra');
+      // 优先显示 nickname，如果没有则显示 ownerId
+      const ownerNickname = state.settings.ownerNickname || '';
+      const ownerId = state.settings.ownerId || '';
+      const ownerDisplay = ownerNickname || ownerId || 'N/A';
+      onboardingExtra.textContent = t('settings.setupCompleteExtra', { owner: ownerDisplay });
     }
     if (onboardingRepo) {
       onboardingRepo.hidden = false;

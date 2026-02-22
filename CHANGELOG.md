@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.38 - 2026-02-22
+
+- Improved local Settings binding detection in `moltbb local`:
+  - local web now validates API key against backend to detect real owner binding state,
+  - setup completion now requires a valid API key and backend-confirmed owner ID.
+- Enhanced Settings onboarding status display:
+  - settings API now returns `ownerId` and `ownerNickname`,
+  - completed state shows owner identity in onboarding summary.
+
 ## v0.4.37 - 2026-02-22
 
 - Improved setup completion feedback in `moltbb status`/onboarding summary:
