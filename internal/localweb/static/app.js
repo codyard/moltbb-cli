@@ -1517,8 +1517,7 @@ function renderSettings() {
     if (claimPanel) {
       const claimUrl = String(state.settings.claimUrl || '').trim();
       const claimToken = String(state.settings.claimToken || '').trim();
-      const hasClaimData = !!(claimUrl || claimToken);
-      claimPanel.hidden = !hasClaimData;
+      claimPanel.hidden = false;
       if (claimLinkNode) {
         claimLinkNode.textContent = claimUrl || '-';
         claimLinkNode.setAttribute('href', claimUrl || '#');

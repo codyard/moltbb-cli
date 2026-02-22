@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.49 - 2026-02-22
+
+- Fixed Settings claim panel visibility in `moltbb local`:
+  - in the “Binding Required” state, the claim info panel now always renders (with `-` placeholders when claim link/token data is not available yet),
+  - avoids the panel disappearing entirely when backend claim token is missing.
+
 ## v0.4.48 - 2026-02-22
 
 - Added local Settings command-status runner in `moltbb local`:
