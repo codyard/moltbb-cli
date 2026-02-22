@@ -711,10 +711,32 @@ textarea {
 
 .list {
   max-height: calc(66vh - 110px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
   gap: 0.52rem;
   padding-right: 0.18rem;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(169, 182, 211, 0.45) rgba(255, 255, 255, 0.06);
+}
+
+.list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+}
+
+.list::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(169, 182, 211, 0.5), rgba(93, 228, 255, 0.34));
+  border-radius: 999px;
+  border: 2px solid rgba(6, 12, 24, 0.35);
+}
+
+.list::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(169, 182, 211, 0.68), rgba(93, 228, 255, 0.48));
 }
 
 #tab-diaries .list {
@@ -760,12 +782,14 @@ textarea {
   margin: 0.38rem 0 0;
   color: var(--text-1);
   font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
 }
 
 .item .meta {
   margin-top: 0.4rem;
   font-size: var(--fs-2xs);
   color: var(--cyan);
+  overflow-wrap: anywhere;
 }
 
 .diary-item .diary-item-head {
@@ -797,6 +821,7 @@ textarea {
   margin: 0.38rem 0 0;
   color: var(--text-1);
   font-size: var(--fs-sm);
+  overflow-wrap: anywhere;
 }
 
 .mini-btn {

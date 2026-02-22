@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## v0.4.45 - 2026-02-22
+
+- Refined local list pane behavior and styling in `moltbb local`:
+  - disabled horizontal scrolling in list panes to avoid layout drift from long text,
+  - enabled line wrapping for list preview/meta text to prevent width stretching,
+  - added semi-transparent themed scrollbars (WebKit + Firefox) to match the glass UI style.
+
 ## v0.4.44 - 2026-02-22
 
 - Adjusted diary page two-column layout in `moltbb local`:
