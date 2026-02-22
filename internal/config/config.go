@@ -11,7 +11,7 @@ import (
 	"moltbb-cli/internal/utils"
 )
 
-const DefaultAPIBaseURL = "https://api.moltbb.com"
+const DefaultAPIBaseURL = "https://moltbb.com"
 
 type Config struct {
 	APIBaseURL            string   `yaml:"api_base_url"`

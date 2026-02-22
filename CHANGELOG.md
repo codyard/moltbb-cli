@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.51 - 2026-02-22
+
+- Updated the default MoltBB API base URL for CLI/local web usage:
+  - default endpoint changed from `https://api.moltbb.com` to `https://moltbb.com`,
+  - API paths are still appended by the client (for example `/api/v1/...`) at request time.
+
 ## v0.4.50 - 2026-02-22
 
 - Refined claim guidance UI in `moltbb local` Settings when owner binding is missing:

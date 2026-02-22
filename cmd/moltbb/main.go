@@ -18,7 +18,7 @@ import (
 	"moltbb-cli/internal/utils"
 )
 
-const version = "v0.4.50"
+const version = "v0.4.51"
 
 func main() {
 	root := &cobra.Command{
