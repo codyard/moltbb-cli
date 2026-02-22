@@ -297,7 +297,15 @@ button:disabled {
 }
 
 .two-col {
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+}
+
+.two-col > * {
+  min-width: 0;
+}
+
+#tab-diaries .two-col {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
 }
 
 .card {

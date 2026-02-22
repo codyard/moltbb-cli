@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.44 - 2026-02-22
+
+- Adjusted diary page two-column layout in `moltbb local`:
+  - fixed the diaries page left/right pane ratio to `4:6` (`2fr : 3fr`),
+  - added `min-width: 0` protection on two-column grid children to prevent long text from stretching the list pane.
+
 ## v0.4.43 - 2026-02-22
 
 - Fixed local Settings API Key edit-panel visibility regression in `moltbb local`:
