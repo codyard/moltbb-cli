@@ -15,6 +15,7 @@ import (
 	"moltbb-cli/internal/binding"
 	"moltbb-cli/internal/config"
 	"moltbb-cli/internal/diary"
+	"moltbb-cli/internal/output"
 	"moltbb-cli/internal/utils"
 )
 
@@ -38,6 +39,7 @@ func main() {
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newLocalCmd())
 	root.AddCommand(newLocalWriteCmd())
+	root.AddCommand(newExplainCmd())
 	root.AddCommand(newLoginCmd())
 	root.AddCommand(newBindCmd())
 	root.AddCommand(newStatusCmd())
@@ -45,6 +47,64 @@ func main() {
 	root.AddCommand(newSyncCmd())
 	root.AddCommand(newExportCmd())
 	root.AddCommand(newDaemonCmd())
+	root.AddCommand(&cobra.Command{
+		Use:   "completion [shell]",
+		Short: "Generate completion script for your shell",
+		Long: `To load completions:
+
+Bash:
+
+  $ source <(moltbb completion bash)
+
+  # To load completions for each session, execute once:
+  # Linux:
+  $ moltbb completion bash > /etc/bash_completion.d/moltbb
+  # macOS:
+  $ moltbb completion bash > /usr/local/etc/bash_completion.d/moltbb
+
+Zsh:
+
+  # If shell completion is not already enabled in your environment,
+  # you will need to enable it.  You can execute the following once:
+
+  $ echo "autoload -U compinit; compinit" >> ~/.zshrc
+
+  # To load completions for each session, execute once:
+  $ moltbb completion zsh > "${fpath[1]}/_moltbb"
+
+  # You will need to start a new shell for this setup to take effect.
+
+Fish:
+
+  $ moltbb completion fish | source
+
+  # To load completions for each session, execute once:
+  $ moltbb completion fish > ~/.config/fish/completions/moltbb.fish
+
+PowerShell:
+
+  $ moltbb completion powershell | Out-String | Invoke-Expression
+
+  # To load completions for every session, add the output of the preceding command to
+  # your powershell profile.
+`,
+		DisableFlagsInUseLine: true,
+		ValidArgs:             []string{"bash", "zsh", "fish", "powershell"},
+		Args:                  cobra.ExactValidArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch args[0] {
+			case "bash":
+				return root.GenBashCompletion(os.Stdout)
+			case "zsh":
+				return root.GenZshCompletion(os.Stdout)
+			case "fish":
+				return root.GenFishCompletion(os.Stdout, true)
+			case "powershell":
+				return root.GenPowerShellCompletion(os.Stdout)
+			}
+			return nil
+		},
+	})
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
@@ -297,50 +357,61 @@ func newStatusCmd() *cobra.Command {
 		Short: "Show config, auth and binding status",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfgPath, _ := utils.ConfigPath()
-			credPath, _ := utils.CredentialsPath()
-			bindPath, _ := utils.BindingPath()
 			configOK := false
 			apiKeyOK := false
 			boundOK := false
 
+			output.PrintSection("MoltBB Status")
 			fmt.Println("Version:", version)
 			fmt.Println("Config:", cfgPath)
 
 			cfg, cfgErr := config.Load()
 			if cfgErr != nil {
-				fmt.Println("Config status: missing or invalid (run `moltbb onboard`)")
+				output.PrintWarning("Config: missing or invalid (run `moltbb onboard`)")
 			} else {
 				configOK = true
-				fmt.Println("API endpoint:", cfg.APIBaseURL)
-				fmt.Println("Input paths:", strings.Join(cfg.InputPaths, ", "))
-				fmt.Println("Output dir:", cfg.OutputDir)
+				output.PrintSuccess("Config loaded")
+				fmt.Println("  API endpoint:", cfg.APIBaseURL)
+				fmt.Println("  Input paths:", strings.Join(cfg.InputPaths, ", "))
+				fmt.Println("  Output dir:", cfg.OutputDir)
 			}
 
 			key, err := auth.ResolveAPIKey()
 			if err != nil {
-				fmt.Println("API key: not configured")
+				output.PrintWarning("API key: not configured")
 			} else {
 				apiKeyOK = true
-				fmt.Printf("API key: %s\n", maskAPIKey(key))
-				fmt.Println("Credentials file:", credPath)
+				output.PrintSuccess("API key configured")
+				fmt.Printf("  Key: %s\n", maskAPIKey(key))
 			}
 
 			state, err := binding.Load()
 			if err != nil || !state.Bound {
-				fmt.Println("Binding: not bound")
+				output.PrintWarning("Binding: not bound")
 			} else {
 				boundOK = true
-				fmt.Println("Binding: bound")
-				fmt.Println("Bot ID:", state.BotID)
-				fmt.Println("Activation:", state.ActivationStatus)
-				fmt.Println("Binding file:", bindPath)
+				output.PrintSuccess("Bot bound")
+				fmt.Println("  Bot ID:", state.BotID)
+				fmt.Println("  Activation:", state.ActivationStatus)
 			}
 
-			fmt.Println("Onboard checks:")
-			fmt.Printf("- config ok: %v\n", configOK)
-			fmt.Printf("- api key ok: %v\n", apiKeyOK)
-			fmt.Printf("- bound ok: %v\n", boundOK)
-			fmt.Printf("Onboard complete: %v\n", configOK && apiKeyOK && boundOK)
+			output.PrintSection("Onboard Checks")
+			checkStatus := func(name string, ok bool) {
+				if ok {
+					output.PrintSuccess(name + ": OK")
+				} else {
+					output.PrintError(name + ": Not Ready")
+				}
+			}
+			checkStatus("Config", configOK)
+			checkStatus("API Key", apiKeyOK)
+			checkStatus("Binding", boundOK)
+
+			if configOK && apiKeyOK && boundOK {
+				output.PrintSuccess("All checks passed!")
+			} else {
+				output.PrintWarning("Run `moltbb onboard` to complete setup")
+			}
 
 			return nil
 		},
