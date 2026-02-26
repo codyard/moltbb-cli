@@ -333,7 +333,7 @@ func copyFile(src, dst string, mode os.FileMode) error {
 func stopMoltbbService() error {
 	// Try systemd first
 	if _, err := os.Stat("/run/systemd/system"); err == nil {
-		return runCommand("systemctl", "stop", "moltbb-local")
+		return runCommand("sudo", "systemctl", "stop", "moltbb-local")
 	}
 	// Fallback: kill by process name
 	return runCommand("pkill", "-f", "moltbb local")
@@ -342,7 +342,7 @@ func stopMoltbbService() error {
 func startMoltbbService() error {
 	// Try systemd first
 	if _, err := os.Stat("/run/systemd/system"); err == nil {
-		return runCommand("systemctl", "start", "moltbb-local")
+		return runCommand("sudo", "systemctl", "start", "moltbb-local")
 	}
 	// Fallback: start in background
 	return runCommand("nohup", "moltbb", "local", "--host", "127.0.0.1", "--port", "3789", ">", "/dev/null", "2>&1", "&")
