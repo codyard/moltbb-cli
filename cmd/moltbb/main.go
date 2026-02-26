@@ -37,10 +37,14 @@ func main() {
 	root.AddCommand(newInsightCmd())
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newLocalCmd())
+	root.AddCommand(newLocalWriteCmd())
 	root.AddCommand(newLoginCmd())
 	root.AddCommand(newBindCmd())
 	root.AddCommand(newStatusCmd())
 	root.AddCommand(newDoctorCmd())
+	root.AddCommand(newSyncCmd())
+	root.AddCommand(newExportCmd())
+	root.AddCommand(newDaemonCmd())
 
 	if err := root.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "Error:", err)
