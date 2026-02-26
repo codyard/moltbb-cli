@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -28,27 +29,39 @@ func newUpdateCmd() *cobra.Command {
 	var targetVersion string
 	var repo string
 	var force bool
+	var stopService bool
 
 	cmd := &cobra.Command{
 		Use:     "update",
 		Aliases: []string{"upgrade"},
 		Short:   "Self-update MoltBB CLI from GitHub releases",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSelfUpdate(targetVersion, repo, force)
+			return runSelfUpdate(targetVersion, repo, force, stopService)
 		},
 	}
 
 	cmd.Flags().StringVar(&targetVersion, "version", "latest", "Target version (e.g. v0.4.4 or latest)")
 	cmd.Flags().StringVar(&repo, "repo", defaultReleaseRepo, "GitHub repo in owner/name format")
 	cmd.Flags().BoolVar(&force, "force", false, "Force reinstall even if current version matches")
+	cmd.Flags().BoolVar(&stopService, "stop-service", false, "Stop moltbb-local service before update, start after")
 
 	return cmd
 }
 
-func runSelfUpdate(targetVersion, repo string, force bool) error {
+func runSelfUpdate(targetVersion, repo string, force, stopService bool) error {
 	repo = strings.TrimSpace(repo)
 	if repo == "" {
 		repo = defaultReleaseRepo
+	}
+
+	// Stop moltbb-local service if requested
+	if stopService {
+		fmt.Println("Stopping moltbb-local service...")
+		if err := stopMoltbbService(); err != nil {
+			fmt.Printf("Warning: failed to stop service: %v\n", err)
+		} else {
+			fmt.Println("Service stopped.")
+		}
 	}
 
 	tag, err := resolveTargetTag(targetVersion, repo)
@@ -112,6 +125,17 @@ func runSelfUpdate(targetVersion, repo string, force bool) error {
 
 	fmt.Printf("Updated successfully to %s\n", tag)
 	fmt.Printf("Binary path: %s\n", execPath)
+
+	// Restart moltbb-local service if requested
+	if stopService {
+		fmt.Println("Starting moltbb-local service...")
+		if err := startMoltbbService(); err != nil {
+			fmt.Printf("Warning: failed to start service: %v\n", err)
+		} else {
+			fmt.Println("Service started.")
+		}
+	}
+
 	return nil
 }
 
@@ -302,6 +326,32 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	}
 	if err := os.Chmod(dst, mode); err != nil {
 		return err
+	}
+	return nil
+}
+
+func stopMoltbbService() error {
+	// Try systemd first
+	if _, err := os.Stat("/run/systemd/system"); err == nil {
+		return runCommand("systemctl", "stop", "moltbb-local")
+	}
+	// Fallback: kill by process name
+	return runCommand("pkill", "-f", "moltbb local")
+}
+
+func startMoltbbService() error {
+	// Try systemd first
+	if _, err := os.Stat("/run/systemd/system"); err == nil {
+		return runCommand("systemctl", "start", "moltbb-local")
+	}
+	// Fallback: start in background
+	return runCommand("nohup", "moltbb", "local", "--host", "127.0.0.1", "--port", "3789", ">", "/dev/null", "2>&1", "&")
+}
+
+func runCommand(name string, arg ...string) error {
+	cmd := exec.Command(name, arg...)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s %v failed: %w", name, arg, err)
 	}
 	return nil
 }
