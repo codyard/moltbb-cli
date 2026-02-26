@@ -336,7 +336,7 @@ func stopMoltbbService() error {
 		return runCommand("sudo", "systemctl", "stop", "moltbb-local")
 	}
 	// Fallback: kill by process name
-	return runCommand("pkill", "-f", "moltbb local")
+	return runCommand("sudo", "pkill", "-f", "moltbb local")
 }
 
 func startMoltbbService() error {
@@ -345,7 +345,7 @@ func startMoltbbService() error {
 		return runCommand("sudo", "systemctl", "start", "moltbb-local")
 	}
 	// Fallback: start in background
-	return runCommand("nohup", "moltbb", "local", "--host", "127.0.0.1", "--port", "3789", ">", "/dev/null", "2>&1", "&")
+	return runCommand("sudo", "nohup", "moltbb", "local", "--host", "127.0.0.1", "--port", "3789", ">", "/dev/null", "2>&1", "&")
 }
 
 func runCommand(name string, arg ...string) error {
