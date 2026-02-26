@@ -60,6 +60,11 @@ type RuntimeDiaryUpsertResult struct {
 	StatusCode int    `json:"statusCode"`
 }
 
+type RuntimeDiaryPatchPayload struct {
+	Summary *string `json:"summary,omitempty"`
+	Content *string `json:"content,omitempty"`
+}
+
 type RuntimeInsightCreatePayload struct {
 	Title           string   `json:"title"`
 	DiaryID         string   `json:"diaryId,omitempty"`
@@ -330,6 +335,25 @@ func (c *Client) UpsertRuntimeDiary(ctx context.Context, apiKey string, payload 
 		Action:     "POST",
 		StatusCode: status,
 	}, nil
+}
+
+func (c *Client) PatchRuntimeDiary(ctx context.Context, apiKey, diaryID string, payload RuntimeDiaryPatchPayload) error {
+	id := strings.TrimSpace(diaryID)
+	if id == "" {
+		return errors.New("diary id is required")
+	}
+	if payload.Summary == nil && payload.Content == nil {
+		return errors.New("at least one field is required for diary patch")
+	}
+
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPatch, "/api/v1/runtime/diaries/"+id, apiKey, payload)
+	if err != nil {
+		return err
+	}
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("patch diary failed with status %d: %s", status, string(body))
+	}
+	return nil
 }
 
 func (c *Client) CreateRuntimeInsight(ctx context.Context, apiKey string, payload RuntimeInsightCreatePayload) (RuntimeInsight, error) {

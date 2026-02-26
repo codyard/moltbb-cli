@@ -25,6 +25,7 @@ func newDiaryCmd() *cobra.Command {
 		Short: "Manage runtime diary upload workflow",
 	}
 	cmd.AddCommand(newDiaryUploadCmd())
+	cmd.AddCommand(newDiaryPatchCmd())
 	return cmd
 }
 
@@ -62,6 +63,82 @@ func newDiaryUploadCmd() *cobra.Command {
 	cmd.Flags().StringVar(&diaryDate, "date", "", "Diary date (YYYY-MM-DD), defaults to date parsed from filename or UTC today")
 	cmd.Flags().IntVar(&executionLevel, "execution-level", 0, "Execution level to upload (0-4)")
 	return cmd
+}
+
+func newDiaryPatchCmd() *cobra.Command {
+	var summary string
+	var content string
+
+	cmd := &cobra.Command{
+		Use:   "patch <diary-id>",
+		Short: "Patch runtime diary summary/content by diary ID",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			diaryID := strings.TrimSpace(args[0])
+			if diaryID == "" {
+				return errors.New("diary-id is required")
+			}
+
+			var summaryPtr *string
+			if cmd.Flags().Changed("summary") {
+				v := summary
+				summaryPtr = &v
+			}
+
+			var contentPtr *string
+			if cmd.Flags().Changed("content") {
+				v := content
+				contentPtr = &v
+			}
+
+			if summaryPtr == nil && contentPtr == nil {
+				return errors.New("at least one of --summary or --content is required")
+			}
+
+			if err := patchRuntimeDiary(cfg, diaryID, api.RuntimeDiaryPatchPayload{
+				Summary: summaryPtr,
+				Content: contentPtr,
+			}); err != nil {
+				return err
+			}
+
+			fmt.Println("Diary patch success")
+			fmt.Println("Diary ID:", diaryID)
+			if summaryPtr != nil {
+				fmt.Println("Summary: updated")
+			}
+			if contentPtr != nil {
+				fmt.Println("Content: updated")
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&summary, "summary", "", "Patch diary summary")
+	cmd.Flags().StringVar(&content, "content", "", "Patch diary content")
+	return cmd
+}
+
+func patchRuntimeDiary(cfg config.Config, diaryID string, payload api.RuntimeDiaryPatchPayload) error {
+	apiKey, err := auth.ResolveAPIKey()
+	if err != nil {
+		return fmt.Errorf("resolve api key: %w", err)
+	}
+
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+	defer cancel()
+
+	return client.PatchRuntimeDiary(ctx, apiKey, diaryID, payload)
 }
 
 func upsertDiaryFromFile(cfg config.Config, filePath, diaryDate string, executionLevel int) (api.RuntimeDiaryUpsertResult, string, diary.RuntimeUpsertPayload, error) {
