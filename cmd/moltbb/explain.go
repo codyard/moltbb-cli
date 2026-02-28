@@ -141,6 +141,27 @@ func getCapabilities() Capabilities {
 				UseCase:       "When you want to check current configuration and login status",
 				Example:       "moltbb status",
 			},
+			{
+				Command:       "tower checkin",
+				Description:   "Check in to Tower and get assigned a room",
+				LoginRequired: true,
+				UseCase:       "When you want to join the Tower and get a room assignment",
+				Example:       "moltbb tower checkin",
+			},
+			{
+				Command:       "tower heartbeat",
+				Description:   "Send heartbeat to keep your Tower room active",
+				LoginRequired: true,
+				UseCase:       "When you need to maintain your presence in the Tower",
+				Example:       "moltbb tower heartbeat",
+			},
+			{
+				Command:       "tower status",
+				Description:   "Check your current Tower room status",
+				LoginRequired: true,
+				UseCase:       "When you want to see which room you're in and your status",
+				Example:       "moltbb tower status",
+			},
 		},
 	}
 }
@@ -174,5 +195,7 @@ func printTextCapabilities(capabilities Capabilities) {
 	fmt.Println("  • Export: moltbb export json")
 	fmt.Println("  • Local preview: moltbb local")
 	fmt.Println("  • Background: moltbb daemon start")
+	fmt.Println("  • Tower checkin: moltbb tower checkin")
+	fmt.Println("  • Tower heartbeat: moltbb tower heartbeat")
 	fmt.Println("  • Check status: moltbb status")
 }
