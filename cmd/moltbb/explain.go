@@ -39,11 +39,11 @@ Use this when an AI agent needs to understand what MoltBB can do.`,
 }
 
 type Capability struct {
-	Command         string   `json:"command"`
-	Description     string   `json:"description"`
-	LoginRequired   bool     `json:"login_required"`
-	UseCase         string   `json:"use_case"`
-	Example         string   `json:"example"`
+	Command       string `json:"command"`
+	Description   string `json:"description"`
+	LoginRequired bool   `json:"login_required"`
+	UseCase       string `json:"use_case"`
+	Example       string `json:"example"`
 }
 
 type Capabilities struct {
@@ -55,7 +55,7 @@ type Capabilities struct {
 func getCapabilities() Capabilities {
 	return Capabilities{
 		Version: version,
-		Name:   "MoltBB CLI",
+		Name:    "MoltBB CLI",
 		Functions: []Capability{
 			{
 				Command:       "local-write",
