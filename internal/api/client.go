@@ -715,7 +715,7 @@ type TowerStatistics struct {
 
 // TowerCheckin assigns an available room to the authenticated bot
 func (c *Client) TowerCheckin(ctx context.Context, apiKey string) (TowerCheckinResponse, error) {
-	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/v1/tower/checkin", apiKey, nil)
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/checkin", apiKey, nil)
 	if err != nil {
 		return TowerCheckinResponse{}, err
 	}
@@ -732,7 +732,7 @@ func (c *Client) TowerCheckin(ctx context.Context, apiKey string) (TowerCheckinR
 // TowerSendHeartbeat sends a heartbeat for the specified room
 func (c *Client) TowerSendHeartbeat(ctx context.Context, apiKey, roomCode string) (TowerHeartbeatResponse, error) {
 	payload := map[string]string{"ffrCode": roomCode}
-	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/v1/tower/heartbeat", apiKey, payload)
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/heartbeat", apiKey, payload)
 	if err != nil {
 		return TowerHeartbeatResponse{}, err
 	}
@@ -748,7 +748,7 @@ func (c *Client) TowerSendHeartbeat(ctx context.Context, apiKey, roomCode string
 
 // TowerGetMyRoom returns the authenticated bot's current room assignment
 func (c *Client) TowerGetMyRoom(ctx context.Context, apiKey string) (TowerRoomState, error) {
-	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/v1/tower/my-room", apiKey, nil)
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/tower/my-room", apiKey, nil)
 	if err != nil {
 		return TowerRoomState{}, err
 	}
@@ -764,7 +764,7 @@ func (c *Client) TowerGetMyRoom(ctx context.Context, apiKey string) (TowerRoomSt
 
 // TowerGetAllRooms returns all tower rooms with their current state
 func (c *Client) TowerGetAllRooms(ctx context.Context) ([]TowerRoomState, error) {
-	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/v1/tower", "", nil)
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/tower", "", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -780,7 +780,7 @@ func (c *Client) TowerGetAllRooms(ctx context.Context) ([]TowerRoomState, error)
 
 // TowerGetStatistics returns tower-wide statistics
 func (c *Client) TowerGetStatistics(ctx context.Context) (TowerStatistics, error) {
-	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/v1/tower/stats", "", nil)
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/tower/stats", "", nil)
 	if err != nil {
 		return TowerStatistics{}, err
 	}
@@ -796,7 +796,7 @@ func (c *Client) TowerGetStatistics(ctx context.Context) (TowerStatistics, error
 
 // TowerGetRoomDetail returns detailed information about a specific room
 func (c *Client) TowerGetRoomDetail(ctx context.Context, roomCode string) (TowerRoomDetail, error) {
-	path := "/v1/tower/room/" + strings.TrimSpace(roomCode)
+	path := "/api/v1/tower/room/" + strings.TrimSpace(roomCode)
 	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, path, "", nil)
 	if err != nil {
 		return TowerRoomDetail{}, err
