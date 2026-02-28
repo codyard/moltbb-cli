@@ -663,3 +663,150 @@ func (c *Client) doRequestWithAPIKey(ctx context.Context, method, path, apiKey s
 
 	return nil, 0, fmt.Errorf("request failed after retries: %w", lastErr)
 }
+
+// Tower API types
+type TowerCheckinResponse struct {
+	Code        string `json:"code"`
+	GlobalIndex int    `json:"globalIndex"`
+	Floor       int    `json:"floor"`
+	RoomNumber  int    `json:"roomNumber"`
+	JoinTime    *int64 `json:"joinTime,omitempty"` // Unix timestamp, nullable
+}
+
+type TowerHeartbeatResponse struct {
+	Success   bool  `json:"success"`
+	Timestamp int64 `json:"timestamp"`
+}
+
+type TowerRoomState struct {
+	Code          string `json:"code"`
+	GlobalIndex   int    `json:"globalIndex"`
+	BotId         string `json:"botId,omitempty"`
+	BotName       string `json:"botName,omitempty"`
+	Status        int    `json:"status"`
+	LastHeartbeat *int64 `json:"lastHeartbeat,omitempty"`
+}
+
+type TowerRoomDetail struct {
+	Code            string `json:"code"`
+	Floor           int    `json:"floor"`
+	RoomNumber      int    `json:"roomNumber"`
+	GlobalIndex     int    `json:"globalIndex"`
+	BotId           string `json:"botId,omitempty"`
+	BotName         string `json:"botName,omitempty"`
+	Status          int    `json:"status"`
+	LastHeartbeat   *int64 `json:"lastHeartbeat,omitempty"`
+	JoinTime        *int64 `json:"joinTime,omitempty"`
+	TotalHeartbeats int    `json:"totalHeartbeats"`
+}
+
+type TowerStatistics struct {
+	TotalRooms       int     `json:"totalRooms"`
+	OccupiedRooms    int     `json:"occupiedRooms"`
+	OnlineNodes      int     `json:"onlineNodes"`
+	OnlineRooms      int     `json:"onlineRooms"`
+	Stable7DNodes    int     `json:"stable7DNodes"`
+	Stable30DNodes   int     `json:"stable30DNodes"`
+	OccupancyRate    float64 `json:"occupancyRate"`
+	RoomsJoinedToday int     `json:"roomsJoinedToday"`
+	FullFloors       int     `json:"fullFloors"`
+	IsFullTower      bool    `json:"isFullTower"`
+}
+
+// TowerCheckin assigns an available room to the authenticated bot
+func (c *Client) TowerCheckin(ctx context.Context, apiKey string) (TowerCheckinResponse, error) {
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/v1/tower/checkin", apiKey, nil)
+	if err != nil {
+		return TowerCheckinResponse{}, err
+	}
+	if status < 200 || status >= 300 {
+		return TowerCheckinResponse{}, fmt.Errorf("tower checkin failed with status %d: %s", status, string(body))
+	}
+	var resp TowerCheckinResponse
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return TowerCheckinResponse{}, fmt.Errorf("parse tower checkin response: %w", err)
+	}
+	return resp, nil
+}
+
+// TowerSendHeartbeat sends a heartbeat for the specified room
+func (c *Client) TowerSendHeartbeat(ctx context.Context, apiKey, roomCode string) (TowerHeartbeatResponse, error) {
+	payload := map[string]string{"ffrCode": roomCode}
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/v1/tower/heartbeat", apiKey, payload)
+	if err != nil {
+		return TowerHeartbeatResponse{}, err
+	}
+	if status < 200 || status >= 300 {
+		return TowerHeartbeatResponse{}, fmt.Errorf("tower heartbeat failed with status %d: %s", status, string(body))
+	}
+	var resp TowerHeartbeatResponse
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return TowerHeartbeatResponse{}, fmt.Errorf("parse tower heartbeat response: %w", err)
+	}
+	return resp, nil
+}
+
+// TowerGetMyRoom returns the authenticated bot's current room assignment
+func (c *Client) TowerGetMyRoom(ctx context.Context, apiKey string) (TowerRoomState, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/v1/tower/my-room", apiKey, nil)
+	if err != nil {
+		return TowerRoomState{}, err
+	}
+	if status < 200 || status >= 300 {
+		return TowerRoomState{}, fmt.Errorf("tower get my room failed with status %d: %s", status, string(body))
+	}
+	var resp TowerRoomState
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return TowerRoomState{}, fmt.Errorf("parse tower my room response: %w", err)
+	}
+	return resp, nil
+}
+
+// TowerGetAllRooms returns all tower rooms with their current state
+func (c *Client) TowerGetAllRooms(ctx context.Context) ([]TowerRoomState, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/v1/tower", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("tower get all rooms failed with status %d: %s", status, string(body))
+	}
+	var resp []TowerRoomState
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse tower rooms response: %w", err)
+	}
+	return resp, nil
+}
+
+// TowerGetStatistics returns tower-wide statistics
+func (c *Client) TowerGetStatistics(ctx context.Context) (TowerStatistics, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/v1/tower/stats", "", nil)
+	if err != nil {
+		return TowerStatistics{}, err
+	}
+	if status < 200 || status >= 300 {
+		return TowerStatistics{}, fmt.Errorf("tower get statistics failed with status %d: %s", status, string(body))
+	}
+	var resp TowerStatistics
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return TowerStatistics{}, fmt.Errorf("parse tower statistics response: %w", err)
+	}
+	return resp, nil
+}
+
+// TowerGetRoomDetail returns detailed information about a specific room
+func (c *Client) TowerGetRoomDetail(ctx context.Context, roomCode string) (TowerRoomDetail, error) {
+	path := "/v1/tower/room/" + strings.TrimSpace(roomCode)
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, path, "", nil)
+	if err != nil {
+		return TowerRoomDetail{}, err
+	}
+	if status < 200 || status >= 300 {
+		return TowerRoomDetail{}, fmt.Errorf("tower get room detail failed with status %d: %s", status, string(body))
+	}
+	var resp TowerRoomDetail
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return TowerRoomDetail{}, fmt.Errorf("parse tower room detail response: %w", err)
+	}
+	return resp, nil
+}

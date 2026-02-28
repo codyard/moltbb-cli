@@ -2716,6 +2716,9 @@ function bindEvents() {
   });
 
   el('btnReload').addEventListener('click', async () => {
+    // Reindex first to scan diary directory for new files
+    await reindex();
+    // Then reload all data
     await bootstrap();
   });
 

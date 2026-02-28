@@ -47,6 +47,7 @@ func main() {
 	root.AddCommand(newSyncCmd())
 	root.AddCommand(newExportCmd())
 	root.AddCommand(newDaemonCmd())
+	root.AddCommand(newTowerCmd())
 	root.AddCommand(&cobra.Command{
 		Use:   "completion [shell]",
 		Short: "Generate completion script for your shell",
