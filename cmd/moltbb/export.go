@@ -200,6 +200,6 @@ func exportZip(files []string, diaryDir, outputDir string) error {
 	}
 
 	fmt.Printf("✅ Exported %d files to %s\n", len(files), exportDir)
-	fmt.Println("💡 Note: For zip, use: tar -czf diaries.tar.gz -C %s .", exportDir)
+	fmt.Printf("💡 Note: For zip, use: tar -czf diaries.tar.gz -C %s .\n", exportDir)
 	return nil
 }
