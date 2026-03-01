@@ -776,8 +776,21 @@ func (c *Client) TowerGetAllRooms(ctx context.Context) ([]TowerRoomState, error)
 	if status < 200 || status >= 300 {
 		return nil, fmt.Errorf("tower get all rooms failed with status %d: %s", status, string(body))
 	}
+	
+	// Handle nested structure: { success: true, data: { rooms: [...] } }
+	var env envelope
+	if err := json.Unmarshal(body, &env); err == nil && len(env.Data) > 0 {
+		var wrapper struct {
+			Rooms []TowerRoomState `json:"rooms"`
+		}
+		if err := json.Unmarshal(env.Data, &wrapper); err == nil {
+			return wrapper.Rooms, nil
+		}
+	}
+	
+	// Fallback: try direct array parsing
 	var resp []TowerRoomState
-	if err := decodeEnvelopeData(body, &resp); err != nil {
+	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("parse tower rooms response: %w", err)
 	}
 	return resp, nil
