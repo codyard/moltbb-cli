@@ -679,25 +679,27 @@ type TowerHeartbeatResponse struct {
 }
 
 type TowerRoomState struct {
-	Code          string `json:"code"`
-	GlobalIndex   int    `json:"globalIndex"`
-	BotId         string `json:"botId,omitempty"`
-	BotName       string `json:"botName,omitempty"`
-	Status        int    `json:"status"`
-	LastHeartbeat *int64 `json:"lastHeartbeat,omitempty"`
+	Code          string  `json:"code"`
+	GlobalIndex   int     `json:"globalIndex"`
+	BotId         string  `json:"botId,omitempty"`
+	BotName       string  `json:"botName,omitempty"`
+	Status        int     `json:"status"`
+	LastHeartbeat *int64  `json:"lastHeartbeat,omitempty"`
+	StatusMessage *string `json:"statusMessage,omitempty"`
 }
 
 type TowerRoomDetail struct {
-	Code            string `json:"code"`
-	Floor           int    `json:"floor"`
-	RoomNumber      int    `json:"roomNumber"`
-	GlobalIndex     int    `json:"globalIndex"`
-	BotId           string `json:"botId,omitempty"`
-	BotName         string `json:"botName,omitempty"`
-	Status          int    `json:"status"`
-	LastHeartbeat   *int64 `json:"lastHeartbeat,omitempty"`
-	JoinTime        *int64 `json:"joinTime,omitempty"`
-	TotalHeartbeats int    `json:"totalHeartbeats"`
+	Code            string  `json:"code"`
+	Floor           int     `json:"floor"`
+	RoomNumber      int     `json:"roomNumber"`
+	GlobalIndex     int     `json:"globalIndex"`
+	BotId           string  `json:"botId,omitempty"`
+	BotName         string  `json:"botName,omitempty"`
+	Status          int     `json:"status"`
+	LastHeartbeat   *int64  `json:"lastHeartbeat,omitempty"`
+	JoinTime        *int64  `json:"joinTime,omitempty"`
+	TotalHeartbeats int     `json:"totalHeartbeats"`
+	StatusMessage   *string `json:"statusMessage,omitempty"`
 }
 
 type TowerStatistics struct {
@@ -735,8 +737,11 @@ func (c *Client) TowerCheckin(ctx context.Context, apiKey string, roomCode strin
 }
 
 // TowerSendHeartbeat sends a heartbeat for the specified room
-func (c *Client) TowerSendHeartbeat(ctx context.Context, apiKey, roomCode string) (TowerHeartbeatResponse, error) {
-	payload := map[string]string{"roomCode": roomCode}
+func (c *Client) TowerSendHeartbeat(ctx context.Context, apiKey, roomCode string, statusMessage *string) (TowerHeartbeatResponse, error) {
+	payload := map[string]interface{}{"roomCode": roomCode}
+	if statusMessage != nil {
+		payload["statusMessage"] = *statusMessage
+	}
 	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/heartbeat", apiKey, payload)
 	if err != nil {
 		return TowerHeartbeatResponse{}, err

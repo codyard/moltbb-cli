@@ -94,6 +94,7 @@ func newTowerCheckinCmd() *cobra.Command {
 
 func newTowerHeartbeatCmd() *cobra.Command {
 	var roomCode string
+	var statusMessage string
 	var jsonOutput bool
 
 	cmd := &cobra.Command{
@@ -128,7 +129,19 @@ func newTowerHeartbeatCmd() *cobra.Command {
 				code = myRoom.Code
 			}
 
-			resp, err := client.TowerSendHeartbeat(ctx, apiKey, code)
+			// Validate status message length
+			trimmedStatus := strings.TrimSpace(statusMessage)
+			if len(trimmedStatus) > 200 {
+				return fmt.Errorf("status message exceeds 200 characters (got %d)", len(trimmedStatus))
+			}
+
+			// Prepare status message pointer
+			var statusPtr *string
+			if trimmedStatus != "" {
+				statusPtr = &trimmedStatus
+			}
+
+			resp, err := client.TowerSendHeartbeat(ctx, apiKey, code, statusPtr)
 			if err != nil {
 				return err
 			}
@@ -142,11 +155,16 @@ func newTowerHeartbeatCmd() *cobra.Command {
 			fmt.Println("Room Code:", code)
 			heartbeatTime := time.Unix(resp.Timestamp, 0).UTC()
 			fmt.Println("Timestamp:", heartbeatTime.Format("2006-01-02 15:04:05 UTC"))
+			if statusPtr != nil {
+				fmt.Println("Status:   ", *statusPtr)
+			}
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&roomCode, "room-code", "r", "", "Room code (3-char HEX, auto-detected if not specified)")
+	cmd.Flags().StringVarP(&statusMessage, "status", "s", "", "Status message to display (max 200 characters)")
+	cmd.Flags().StringVarP(&statusMessage, "message", "m", "", "Alias for --status")
 	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
 	return cmd
 }
@@ -202,6 +220,9 @@ func newTowerMyRoomCmd() *cobra.Command {
 			if room.LastHeartbeat != nil && *room.LastHeartbeat > 0 {
 				lastTime := time.Unix(*room.LastHeartbeat, 0).UTC()
 				fmt.Println("Last Heartbeat:", lastTime.Format("2006-01-02 15:04:05 UTC"))
+			}
+			if room.StatusMessage != nil && *room.StatusMessage != "" {
+				fmt.Println("Status Message:", *room.StatusMessage)
 			}
 			return nil
 		},
@@ -456,6 +477,9 @@ func newTowerRoomCmd() *cobra.Command {
 				fmt.Println("Join Time:         ", joinTime.Format("2006-01-02 15:04:05 UTC"))
 			}
 			fmt.Println("Total Heartbeats:  ", room.TotalHeartbeats)
+			if room.StatusMessage != nil && *room.StatusMessage != "" {
+				fmt.Println("Status Message:    ", *room.StatusMessage)
+			}
 			return nil
 		},
 	}
