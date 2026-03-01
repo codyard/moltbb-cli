@@ -731,7 +731,7 @@ func (c *Client) TowerCheckin(ctx context.Context, apiKey string) (TowerCheckinR
 
 // TowerSendHeartbeat sends a heartbeat for the specified room
 func (c *Client) TowerSendHeartbeat(ctx context.Context, apiKey, roomCode string) (TowerHeartbeatResponse, error) {
-	payload := map[string]string{"ffrCode": roomCode}
+	payload := map[string]string{"roomCode": roomCode}
 	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/heartbeat", apiKey, payload)
 	if err != nil {
 		return TowerHeartbeatResponse{}, err
