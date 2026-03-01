@@ -714,8 +714,13 @@ type TowerStatistics struct {
 }
 
 // TowerCheckin assigns an available room to the authenticated bot
-func (c *Client) TowerCheckin(ctx context.Context, apiKey string) (TowerCheckinResponse, error) {
-	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/checkin", apiKey, nil)
+func (c *Client) TowerCheckin(ctx context.Context, apiKey string, roomCode string) (TowerCheckinResponse, error) {
+	var payload interface{}
+	if strings.TrimSpace(roomCode) != "" {
+		payload = map[string]string{"roomCode": roomCode}
+	}
+	
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/checkin", apiKey, payload)
 	if err != nil {
 		return TowerCheckinResponse{}, err
 	}

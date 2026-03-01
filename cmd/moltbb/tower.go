@@ -31,6 +31,7 @@ func newTowerCmd() *cobra.Command {
 
 func newTowerCheckinCmd() *cobra.Command {
 	var jsonOutput bool
+	var roomCode string
 
 	cmd := &cobra.Command{
 		Use:   "checkin",
@@ -54,7 +55,7 @@ func newTowerCheckinCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
 			defer cancel()
 
-			resp, err := client.TowerCheckin(ctx, apiKey)
+			resp, err := client.TowerCheckin(ctx, apiKey, strings.TrimSpace(roomCode))
 			if err != nil {
 				return err
 			}
@@ -86,6 +87,7 @@ func newTowerCheckinCmd() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().StringVarP(&roomCode, "room-code", "r", "", "Specific room code to check in (3-char HEX, optional)")
 	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
 	return cmd
 }
