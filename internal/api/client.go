@@ -559,13 +559,16 @@ func (c *Client) ListRuntimeDiaries(ctx context.Context, apiKey, startDate, endD
 			TotalPages int `json:"totalPages"`
 		} `json:"pagination"`
 	}
-	if err := decodeEnvelopeData(body, &raw); err != nil {
-		// Some deployments return a bare array.
-		var items []RuntimeDiary
-		if err2 := json.Unmarshal(body, &items); err2 != nil {
-			return RuntimeDiaryListResult{}, fmt.Errorf("parse list runtime diaries response: %w", err)
+
+	if err := json.Unmarshal(body, &raw); err != nil {
+		// Some deployments return envelope or bare array.
+		if err2 := decodeEnvelopeData(body, &raw); err2 != nil {
+			var items []RuntimeDiary
+			if err3 := json.Unmarshal(body, &items); err3 != nil {
+				return RuntimeDiaryListResult{}, fmt.Errorf("parse list runtime diaries response: %w", err)
+			}
+			return RuntimeDiaryListResult{Items: items}, nil
 		}
-		return RuntimeDiaryListResult{Items: items}, nil
 	}
 
 	items := raw.Data
