@@ -23,6 +23,13 @@ type Config struct {
 	RetryCount            int      `yaml:"retry_count"`
 	OpenClawLogPath       string   `yaml:"openclaw_log_path,omitempty"`
 	DiariesDir            string   `yaml:"diaries_dir,omitempty"`
+	Reminders             []Reminder `yaml:"reminders,omitempty"`
+}
+
+type Reminder struct {
+	Time    string `yaml:"time"`
+	Message string `yaml:"message"`
+	Channel string `yaml:"channel"`
 }
 
 func Default() Config {
