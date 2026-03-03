@@ -326,7 +326,7 @@ func New(options Options) (*Server, error) {
 		prompts:    promptStore,
 		mux:        http.NewServeMux(),
 	}
-	if _, err := s.reindexDiaries(); err != nil {
+	if _, _, err := s.syncDiariesIncremental(); err != nil {
 		_ = db.Close()
 		return nil, err
 	}
@@ -1766,6 +1766,79 @@ VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		return 0, err
 	}
 	return len(items), nil
+}
+
+// syncDiariesIncremental 增量同步：扫描文件，只补充 DB 中缺失的条目，
+// 并更新已有但内容已变化（modified_at 不同）的条目，不删除任何现有记录。
+func (s *Server) syncDiariesIncremental() (added int, updated int, err error) {
+	items, err := s.scanDiaryFiles()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, 0, fmt.Errorf("begin sync tx: %w", err)
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(`
+INSERT INTO diary_entries(id, rel_path, filename, date, title, preview, content_text, size, modified_at, indexed_at)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+ON CONFLICT(id) DO UPDATE SET
+  rel_path     = excluded.rel_path,
+  filename     = excluded.filename,
+  date         = excluded.date,
+  title        = excluded.title,
+  preview      = excluded.preview,
+  content_text = excluded.content_text,
+  size         = excluded.size,
+  modified_at  = excluded.modified_at,
+  indexed_at   = excluded.indexed_at
+WHERE diary_entries.modified_at != excluded.modified_at
+`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("prepare sync stmt: %w", err)
+	}
+	defer stmt.Close()
+
+	// 先获取已有 ID 集合，用于统计新增 vs 更新
+	existingIDs := make(map[string]struct{})
+	rows, err := tx.Query(`SELECT id FROM diary_entries`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("query existing ids: %w", err)
+	}
+	for rows.Next() {
+		var id string
+		if scanErr := rows.Scan(&id); scanErr == nil {
+			existingIDs[id] = struct{}{}
+		}
+	}
+	rows.Close()
+
+	indexedAt := time.Now().UTC().Format(time.RFC3339)
+	for _, item := range items {
+		res, execErr := stmt.Exec(item.ID, item.RelPath, item.Filename, item.Date, item.Title, item.Preview, item.SearchText, item.Size, item.ModifiedAt, indexedAt)
+		if execErr != nil {
+			return 0, 0, fmt.Errorf("upsert diary %s: %w", item.ID, execErr)
+		}
+		n, _ := res.RowsAffected()
+		if n > 0 {
+			if _, existed := existingIDs[item.ID]; existed {
+				updated++
+			} else {
+				added++
+			}
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, 0, fmt.Errorf("commit sync tx: %w", err)
+	}
+	if err := s.reconcileDayDefaults(); err != nil {
+		return 0, 0, err
+	}
+	return added, updated, nil
 }
 
 func (s *Server) scanDiaryFiles() ([]diarySummary, error) {

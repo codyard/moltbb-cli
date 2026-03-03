@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.74 - 2026-03-03
+
+- `moltbb local`: startup now uses incremental diary sync instead of full reindex.
+  - Scans local `.md` files and only inserts entries missing from the DB.
+  - Updates existing entries if the file's `modified_at` has changed.
+  - Existing DB records for deleted files are preserved.
+  - Manual reindex via `/api/diaries/reindex` retains full delete+insert behavior.
+
 ## v0.4.72 - 2026-03-03
 
 - Replaced all hardcoded `https://api.moltbb.com` references with `https://moltbb.com` across code, tests, examples, and docs.
