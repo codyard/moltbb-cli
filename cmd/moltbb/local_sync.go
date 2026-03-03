@@ -152,10 +152,16 @@ func syncDiaryFiles(diaryPath string, force bool) (int, error) {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
 			uniqueID, relPath, relPath, date, title, preview, text, len(text))
 
-		if err == nil {
-			count++
-			fmt.Printf("Synced: %s\n", date)
+		if err != nil {
+			// Ignore duplicate rel_path errors to avoid crashing local service.
+			if strings.Contains(err.Error(), "UNIQUE constraint failed: diary_entries.rel_path") {
+				return nil
+			}
+			return nil
 		}
+
+		count++
+		fmt.Printf("Synced: %s\n", date)
 
 		return nil
 	})
