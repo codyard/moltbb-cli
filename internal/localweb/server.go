@@ -1827,6 +1827,9 @@ WHERE diary_entries.modified_at != excluded.modified_at
 	for _, item := range items {
 		res, execErr := stmt.Exec(item.ID, item.RelPath, item.Filename, item.Date, item.Title, item.Preview, item.SearchText, item.Size, item.ModifiedAt, indexedAt)
 		if execErr != nil {
+			if strings.Contains(execErr.Error(), "UNIQUE constraint failed: diary_entries.rel_path") {
+				continue
+			}
 			return 0, 0, fmt.Errorf("upsert diary %s: %w", item.ID, execErr)
 		}
 		n, _ := res.RowsAffected()
