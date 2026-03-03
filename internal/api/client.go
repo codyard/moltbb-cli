@@ -154,6 +154,19 @@ func (c *Client) ValidateAPIKey(ctx context.Context, apiKey string) (ValidateRes
 	if err != nil {
 		return ValidateResponse{}, err
 	}
+
+	// Some deployments removed /auth/validate. Fallback to /agents/me when 404/405.
+	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
+		body, status, err = c.doJSONWithAPIKey(ctx, http.MethodGet, "/api/v1/agents/me", apiKey, nil)
+		if err != nil {
+			return ValidateResponse{}, err
+		}
+		if status >= 200 && status < 300 {
+			return ValidateResponse{Valid: true}, nil
+		}
+		return ValidateResponse{}, fmt.Errorf("validate failed with status %d: %s", status, string(body))
+	}
+
 	if status < 200 || status >= 300 {
 		return ValidateResponse{}, fmt.Errorf("validate failed with status %d: %s", status, string(body))
 	}
