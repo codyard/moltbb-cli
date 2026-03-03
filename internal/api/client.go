@@ -560,7 +560,12 @@ func (c *Client) ListRuntimeDiaries(ctx context.Context, apiKey, startDate, endD
 		} `json:"pagination"`
 	}
 	if err := decodeEnvelopeData(body, &raw); err != nil {
-		return RuntimeDiaryListResult{}, fmt.Errorf("parse list runtime diaries response: %w", err)
+		// Some deployments return a bare array.
+		var items []RuntimeDiary
+		if err2 := json.Unmarshal(body, &items); err2 != nil {
+			return RuntimeDiaryListResult{}, fmt.Errorf("parse list runtime diaries response: %w", err)
+		}
+		return RuntimeDiaryListResult{Items: items}, nil
 	}
 
 	items := raw.Data
