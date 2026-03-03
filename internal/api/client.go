@@ -829,7 +829,7 @@ func (c *Client) TowerCheckin(ctx context.Context, apiKey string, roomCode strin
 	if strings.TrimSpace(roomCode) != "" {
 		payload = map[string]string{"roomCode": roomCode}
 	}
-	
+
 	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/tower/checkin", apiKey, payload)
 	if err != nil {
 		return TowerCheckinResponse{}, err
@@ -889,7 +889,7 @@ func (c *Client) TowerGetAllRooms(ctx context.Context) ([]TowerRoomState, error)
 	if status < 200 || status >= 300 {
 		return nil, fmt.Errorf("tower get all rooms failed with status %d: %s", status, string(body))
 	}
-	
+
 	// Handle nested structure: { success: true, data: { rooms: [...] } }
 	var env envelope
 	if err := json.Unmarshal(body, &env); err == nil && len(env.Data) > 0 {
@@ -900,7 +900,7 @@ func (c *Client) TowerGetAllRooms(ctx context.Context) ([]TowerRoomState, error)
 			return wrapper.Rooms, nil
 		}
 	}
-	
+
 	// Fallback: try direct array parsing
 	var resp []TowerRoomState
 	if err := json.Unmarshal(body, &resp); err != nil {
@@ -947,7 +947,7 @@ func saveToLocalDB(date, summary string) error {
 	// Build local db path
 	homeDir, _ := os.UserHomeDir()
 	dbPath := filepath.Join(homeDir, ".moltbb", "local-web", "local.db")
-	
+
 	// Open database
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {

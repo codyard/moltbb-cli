@@ -829,14 +829,14 @@ func SaveDiaryEntry(db *sql.DB, date, title, summary, content string) error {
 	if db == nil {
 		return errors.New("db is required")
 	}
-	
+
 	// Check if entry exists
 	var exists bool
 	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM diary_entries WHERE date = ?)", date).Scan(&exists)
 	if err != nil {
 		return fmt.Errorf("check diary exists: %w", err)
 	}
-	
+
 	if exists {
 		// Update
 		_, err = db.Exec(`
@@ -851,10 +851,10 @@ func SaveDiaryEntry(db *sql.DB, date, title, summary, content string) error {
 			VALUES (?, ?, ?, ?)`,
 			date, title, summary, content)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("save diary: %w", err)
 	}
-	
+
 	return nil
 }

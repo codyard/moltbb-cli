@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	_ "modernc.org/sqlite"
 	"moltbb-cli/internal/config"
 	"moltbb-cli/internal/output"
-	_ "modernc.org/sqlite"
 )
 
 func newLocalSyncCmd() *cobra.Command {
@@ -71,7 +71,7 @@ func syncDiaryFiles(diaryPath string, force bool) (int, error) {
 	// Open local database
 	homeDir, _ := os.UserHomeDir()
 	dbPath := filepath.Join(homeDir, ".moltbb", "local-web", "local.db")
-	
+
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return 0, fmt.Errorf("open db: %w", err)
@@ -109,7 +109,7 @@ func syncDiaryFiles(diaryPath string, force bool) (int, error) {
 		}
 
 		text := string(content)
-		
+
 		// Extract title (first line)
 		title := text
 		lines := strings.Split(text, "\n")
@@ -144,7 +144,7 @@ func syncDiaryFiles(diaryPath string, force bool) (int, error) {
 				WHERE date = ?`,
 				title, preview, text, date)
 		}
-		
+
 		uniqueID := date + "-" + fmt.Sprintf("%d", time.Now().Unix())
 		relPath := date + ".md"
 		_, err = db.Exec(`

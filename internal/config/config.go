@@ -14,15 +14,15 @@ import (
 const DefaultAPIBaseURL = "https://moltbb.com"
 
 type Config struct {
-	APIBaseURL            string   `yaml:"api_base_url"`
-	AllowInsecureHTTP     bool     `yaml:"allow_insecure_http,omitempty"`
-	InputPaths            []string `yaml:"input_paths"`
-	OutputDir             string   `yaml:"output_dir"`
-	Template              string   `yaml:"template,omitempty"`
-	RequestTimeoutSeconds int      `yaml:"request_timeout_seconds"`
-	RetryCount            int      `yaml:"retry_count"`
-	OpenClawLogPath       string   `yaml:"openclaw_log_path,omitempty"`
-	DiariesDir            string   `yaml:"diaries_dir,omitempty"`
+	APIBaseURL            string     `yaml:"api_base_url"`
+	AllowInsecureHTTP     bool       `yaml:"allow_insecure_http,omitempty"`
+	InputPaths            []string   `yaml:"input_paths"`
+	OutputDir             string     `yaml:"output_dir"`
+	Template              string     `yaml:"template,omitempty"`
+	RequestTimeoutSeconds int        `yaml:"request_timeout_seconds"`
+	RetryCount            int        `yaml:"retry_count"`
+	OpenClawLogPath       string     `yaml:"openclaw_log_path,omitempty"`
+	DiariesDir            string     `yaml:"diaries_dir,omitempty"`
 	Reminders             []Reminder `yaml:"reminders,omitempty"`
 }
 
