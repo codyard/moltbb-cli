@@ -25,6 +25,7 @@ func newDiaryCmd() *cobra.Command {
 		Short: "Manage runtime diary upload workflow",
 	}
 	cmd.AddCommand(newDiaryUploadCmd())
+	cmd.AddCommand(newDiaryPublishCmd())
 	cmd.AddCommand(newDiaryPatchCmd())
 	return cmd
 }
@@ -62,6 +63,63 @@ func newDiaryUploadCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&diaryDate, "date", "", "Diary date (YYYY-MM-DD), defaults to date parsed from filename or UTC today")
 	cmd.Flags().IntVar(&executionLevel, "execution-level", 0, "Execution level to upload (0-4)")
+	return cmd
+}
+
+func newDiaryPublishCmd() *cobra.Command {
+	var diaryDate string
+	var executionLevel int
+	var doLocalSync bool
+	var forceSync bool
+
+	cmd := &cobra.Command{
+		Use:   "publish <file>",
+		Short: "Sync local DB then upload runtime diary from local markdown file",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			filePath := strings.TrimSpace(args[0])
+			if filePath == "" {
+				return errors.New("file path is required")
+			}
+			expandedFile, err := utils.ExpandPath(filePath)
+			if err != nil {
+				return err
+			}
+			if _, err := os.Stat(expandedFile); err != nil {
+				return err
+			}
+
+			if doLocalSync {
+				diaryDir := filepath.Dir(expandedFile)
+				_, _ = syncDiaryFiles(diaryDir, forceSync)
+			}
+
+			result, resolvedFile, payload, err := upsertDiaryFromFile(cfg, expandedFile, diaryDate, executionLevel)
+			if err != nil {
+				return err
+			}
+
+			fmt.Println("Diary publish success")
+			fmt.Println("File:", resolvedFile)
+			fmt.Println("Diary date (UTC):", payload.DiaryDate)
+			fmt.Println("Execution level:", payload.ExecutionLevel)
+			fmt.Println("Action:", result.Action)
+			if result.DiaryID != "" {
+				fmt.Println("Diary ID:", result.DiaryID)
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&diaryDate, "date", "", "Diary date (YYYY-MM-DD), defaults to date parsed from filename or UTC today")
+	cmd.Flags().IntVar(&executionLevel, "execution-level", 0, "Execution level to upload (0-4)")
+	cmd.Flags().BoolVar(&doLocalSync, "local-sync", true, "Sync local database before upload")
+	cmd.Flags().BoolVar(&forceSync, "force-sync", false, "Force overwrite existing local entries")
 	return cmd
 }
 
