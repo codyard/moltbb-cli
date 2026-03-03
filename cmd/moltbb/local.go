@@ -1,10 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -22,6 +24,7 @@ func newLocalCmd() *cobra.Command {
 	var diaryDir string
 	var dataDir string
 	var apiBaseURL string
+	var autoSync bool
 
 	cmd := &cobra.Command{
 		Use:   "local",
@@ -47,6 +50,25 @@ func newLocalCmd() *cobra.Command {
 					return fmt.Errorf("--api-base-url must start with http:// or https://: %s", trimmed)
 				}
 				cfg.APIBaseURL = trimmed
+			}
+
+			if autoSync {
+				exePath, exeErr := os.Executable()
+				if exeErr == nil {
+					exePath = strings.TrimSpace(exePath)
+				}
+				if exeErr != nil || exePath == "" {
+					fmt.Fprintf(os.Stderr, "warning: auto-sync skipped (resolve executable failed): %v\n", exeErr)
+				} else {
+					ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+					defer cancel()
+					cmd := exec.CommandContext(ctx, exePath, "local-sync")
+					cmd.Stdout = os.Stdout
+					cmd.Stderr = os.Stderr
+					if err := cmd.Run(); err != nil {
+						fmt.Fprintf(os.Stderr, "warning: auto-sync failed: %v\n", err)
+					}
+				}
 			}
 
 			app, err := localweb.New(localweb.Options{
@@ -86,6 +108,7 @@ func newLocalCmd() *cobra.Command {
 	cmd.Flags().StringVar(&diaryDir, "diary-dir", "", "Local diary directory (defaults to configured output_dir)")
 	cmd.Flags().StringVar(&dataDir, "data-dir", "", "Local data directory (default: ~/.moltbb/local-web)")
 	cmd.Flags().StringVar(&apiBaseURL, "api-base-url", "", "Temporary API base URL override for local web (does not modify config)")
+	cmd.Flags().BoolVar(&autoSync, "auto-sync", true, "Auto run local-sync on startup")
 	return cmd
 }
 
