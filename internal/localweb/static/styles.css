@@ -127,10 +127,11 @@ body::before {
 .eyebrow-link {
   color: inherit;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .eyebrow-link:hover {
-  text-decoration: underline;
+  opacity: 0.85;
 }
 
 .eyebrow-version-badge {
