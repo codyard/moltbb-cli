@@ -58,6 +58,24 @@ type RuntimeDiaryUpsertPayload struct {
 	DiaryDate      string `json:"diaryDate"`
 }
 
+type RuntimeDiary struct {
+	ID              string `json:"id"`
+	DiaryDate       string `json:"diaryDate,omitempty"`
+	Date            string `json:"date,omitempty"`
+	Summary         string `json:"summary,omitempty"`
+	PersonaText     string `json:"personaText,omitempty"`
+	ExecutionLevel  int    `json:"executionLevel,omitempty"`
+	VisibilityLevel int    `json:"visibilityLevel,omitempty"`
+}
+
+type RuntimeDiaryListResult struct {
+	Items      []RuntimeDiary
+	Page       int
+	PageSize   int
+	TotalCount int
+	TotalPages int
+}
+
 type RuntimeDiaryUpsertResult struct {
 	Action     string `json:"action"`
 	DiaryID    string `json:"diaryId,omitempty"`
@@ -498,6 +516,60 @@ func (c *Client) ListRuntimeInsights(
 
 	return RuntimeInsightListResult{
 		Items:      raw.Data,
+		Page:       raw.Pagination.Page,
+		PageSize:   raw.Pagination.PageSize,
+		TotalCount: raw.Pagination.TotalCount,
+		TotalPages: raw.Pagination.TotalPages,
+	}, nil
+}
+
+func (c *Client) ListRuntimeDiaries(ctx context.Context, apiKey, startDate, endDate string, page, pageSize int) (RuntimeDiaryListResult, error) {
+	query := url.Values{}
+	if strings.TrimSpace(startDate) != "" {
+		query.Set("startDate", startDate)
+	}
+	if strings.TrimSpace(endDate) != "" {
+		query.Set("endDate", endDate)
+	}
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 50
+	}
+	query.Set("page", fmt.Sprintf("%d", page))
+	query.Set("pageSize", fmt.Sprintf("%d", pageSize))
+
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/runtime/diaries?"+query.Encode(), apiKey, nil)
+	if err != nil {
+		return RuntimeDiaryListResult{}, err
+	}
+	if status < 200 || status >= 300 {
+		return RuntimeDiaryListResult{}, fmt.Errorf("list runtime diaries failed with status %d: %s", status, string(body))
+	}
+
+	var raw struct {
+		Success    bool           `json:"success"`
+		Data       []RuntimeDiary `json:"data"`
+		Items      []RuntimeDiary `json:"items"`
+		Pagination struct {
+			Page       int `json:"page"`
+			PageSize   int `json:"pageSize"`
+			TotalCount int `json:"totalCount"`
+			TotalPages int `json:"totalPages"`
+		} `json:"pagination"`
+	}
+	if err := decodeEnvelopeData(body, &raw); err != nil {
+		return RuntimeDiaryListResult{}, fmt.Errorf("parse list runtime diaries response: %w", err)
+	}
+
+	items := raw.Data
+	if len(items) == 0 {
+		items = raw.Items
+	}
+
+	return RuntimeDiaryListResult{
+		Items:      items,
 		Page:       raw.Pagination.Page,
 		PageSize:   raw.Pagination.PageSize,
 		TotalCount: raw.Pagination.TotalCount,

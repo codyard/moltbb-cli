@@ -26,6 +26,7 @@ func newDiaryCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newDiaryUploadCmd())
 	cmd.AddCommand(newDiaryPublishCmd())
+	cmd.AddCommand(newDiaryPullCmd())
 	cmd.AddCommand(newDiaryPatchCmd())
 	return cmd
 }
@@ -120,6 +121,128 @@ func newDiaryPublishCmd() *cobra.Command {
 	cmd.Flags().IntVar(&executionLevel, "execution-level", 0, "Execution level to upload (0-4)")
 	cmd.Flags().BoolVar(&doLocalSync, "local-sync", true, "Sync local database before upload")
 	cmd.Flags().BoolVar(&forceSync, "force-sync", false, "Force overwrite existing local entries")
+	return cmd
+}
+
+func newDiaryPullCmd() *cobra.Command {
+	var startDate string
+	var endDate string
+	var outputDir string
+	var overwrite bool
+	var doLocalSync bool
+	var forceSync bool
+	var pageSize int
+
+	cmd := &cobra.Command{
+		Use:   "pull",
+		Short: "Download runtime diaries from cloud and backfill local files/DB",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			startDate = strings.TrimSpace(startDate)
+			endDate = strings.TrimSpace(endDate)
+			if startDate == "" || endDate == "" {
+				return errors.New("--start and --end are required (YYYY-MM-DD)")
+			}
+			if _, err := time.Parse("2006-01-02", startDate); err != nil {
+				return fmt.Errorf("invalid --start: %w", err)
+			}
+			if _, err := time.Parse("2006-01-02", endDate); err != nil {
+				return fmt.Errorf("invalid --end: %w", err)
+			}
+
+			if strings.TrimSpace(outputDir) == "" {
+				outputDir = cfg.OutputDir
+			}
+			expandedDir, err := utils.ExpandPath(outputDir)
+			if err != nil {
+				return err
+			}
+			if err := os.MkdirAll(expandedDir, 0o755); err != nil {
+				return fmt.Errorf("create output dir: %w", err)
+			}
+
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve api key: %w", err)
+			}
+
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+			defer cancel()
+
+			page := 1
+			written := 0
+			for {
+				result, err := client.ListRuntimeDiaries(ctx, apiKey, startDate, endDate, page, pageSize)
+				if err != nil {
+					return err
+				}
+				if len(result.Items) == 0 {
+					break
+				}
+
+				for _, item := range result.Items {
+					date := strings.TrimSpace(item.DiaryDate)
+					if date == "" {
+						date = strings.TrimSpace(item.Date)
+					}
+					if date == "" {
+						continue
+					}
+					filePath := filepath.Join(expandedDir, date+".md")
+					if !overwrite {
+						if _, err := os.Stat(filePath); err == nil {
+							continue
+						}
+					}
+
+					parts := []string{}
+					if strings.TrimSpace(item.Summary) != "" {
+						parts = append(parts, strings.TrimSpace(item.Summary))
+					}
+					if strings.TrimSpace(item.PersonaText) != "" {
+						parts = append(parts, strings.TrimSpace(item.PersonaText))
+					}
+					content := strings.Join(parts, "\n\n")
+					if strings.TrimSpace(content) == "" {
+						content = "# " + date
+					}
+					if err := os.WriteFile(filePath, []byte(content+"\n"), 0o644); err != nil {
+						return fmt.Errorf("write %s: %w", filePath, err)
+					}
+					written++
+				}
+
+				page++
+				if result.TotalPages > 0 && page > result.TotalPages {
+					break
+				}
+			}
+
+			if doLocalSync {
+				_, _ = syncDiaryFiles(expandedDir, forceSync)
+			}
+
+			fmt.Printf("Pulled %d diaries into %s\n", written, expandedDir)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&startDate, "start", "", "Start date (YYYY-MM-DD, required)")
+	cmd.Flags().StringVar(&endDate, "end", "", "End date (YYYY-MM-DD, required)")
+	cmd.Flags().StringVar(&outputDir, "output-dir", "", "Directory to write diary files (default: config output_dir)")
+	cmd.Flags().BoolVar(&overwrite, "overwrite", false, "Overwrite existing diary files")
+	cmd.Flags().BoolVar(&doLocalSync, "local-sync", true, "Sync local database after download")
+	cmd.Flags().BoolVar(&forceSync, "force-sync", false, "Force overwrite existing local entries")
+	cmd.Flags().IntVar(&pageSize, "page-size", 50, "Page size for API list")
 	return cmd
 }
 
