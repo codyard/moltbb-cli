@@ -155,8 +155,14 @@ func (c *Client) ValidateAPIKey(ctx context.Context, apiKey string) (ValidateRes
 		return ValidateResponse{}, err
 	}
 
-	// Some deployments removed /auth/validate. Fallback to /agents/me when 404/405.
+	// Some deployments removed /auth/validate. Fallback to other auth-protected endpoints.
 	if status == http.StatusNotFound || status == http.StatusMethodNotAllowed {
+		// 1) MoltBB runtime insights (primary for moltbb backend)
+		body, status, err = c.doJSONWithAPIKey(ctx, http.MethodGet, "/api/v1/runtime/insights", apiKey, nil)
+		if err == nil && status >= 200 && status < 300 {
+			return ValidateResponse{Valid: true}, nil
+		}
+		// 2) Moltbook agents/me (legacy for moltbook backend)
 		body, status, err = c.doJSONWithAPIKey(ctx, http.MethodGet, "/api/v1/agents/me", apiKey, nil)
 		if err != nil {
 			return ValidateResponse{}, err
