@@ -53,6 +53,7 @@ func main() {
 	root.AddCommand(newStatsCmd())
 	root.AddCommand(newPolishCmd())
 	root.AddCommand(newTemplateCmd())
+	root.AddCommand(newExportCmd())
 	root.AddCommand(&cobra.Command{
 		Use:   "completion [shell]",
 		Short: "Generate completion script for your shell",
