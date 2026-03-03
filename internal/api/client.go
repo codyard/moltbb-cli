@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,10 +11,13 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"moltbb-cli/internal/config"
+
+	_ "modernc.org/sqlite"
 )
 
 type Client struct {
@@ -276,6 +280,11 @@ func (c *Client) UpsertRuntimeDiary(ctx context.Context, apiKey string, payload 
 	}
 	if strings.TrimSpace(payload.Summary) == "" {
 		return RuntimeDiaryUpsertResult{}, errors.New("summary is required")
+	}
+
+	// Save to local database first
+	if err := saveToLocalDB(diaryDate, payload.Summary); err != nil {
+		fmt.Printf("⚠️  Warning: failed to save to local DB: %v\n", err)
 	}
 
 	existingID, err := c.findRuntimeDiaryIDByDate(ctx, apiKey, diaryDate)
@@ -832,4 +841,56 @@ func (c *Client) TowerGetRoomDetail(ctx context.Context, roomCode string) (Tower
 		return TowerRoomDetail{}, fmt.Errorf("parse tower room detail response: %w", err)
 	}
 	return resp, nil
+}
+
+// saveToLocalDB saves diary to local SQLite database
+func saveToLocalDB(date, summary string) error {
+	// Build local db path
+	homeDir, _ := os.UserHomeDir()
+	dbPath := filepath.Join(homeDir, ".moltbb", "local-web", "local.db")
+	
+	// Open database
+	db, err := sql.Open("sqlite", dbPath)
+	if err != nil {
+		return fmt.Errorf("open db: %w", err)
+	}
+	defer db.Close()
+
+	// Check if entry exists
+	var exists bool
+	err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM diary_entries WHERE date = ?)", date).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check exists: %w", err)
+	}
+
+	// Extract title from summary (first line)
+	title := summary
+	if lines := strings.Split(summary, "\n"); len(lines) > 0 {
+		title = strings.TrimSpace(lines[0])
+		if len(title) > 100 {
+			title = title[:100]
+		}
+	}
+
+	if exists {
+		_, err = db.Exec(`
+			UPDATE diary_entries 
+			SET title = ?, preview = ?, content_text = ?, modified_at = datetime('now')
+			WHERE date = ?`,
+			title, summary, summary, date)
+	} else {
+		// Generate unique id
+		uniqueID := date + "-" + fmt.Sprintf("%d", time.Now().Unix())
+		relPath := date + ".md"
+		_, err = db.Exec(`
+			INSERT INTO diary_entries (id, rel_path, filename, date, title, preview, content_text, size, modified_at, indexed_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))`,
+			uniqueID, relPath, relPath, date, title, summary, summary, len(summary))
+	}
+
+	if err != nil {
+		return fmt.Errorf("save diary: %w", err)
+	}
+
+	return nil
 }

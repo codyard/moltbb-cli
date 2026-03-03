@@ -15,7 +15,7 @@ func newSyncCmd() *cobra.Command {
 	var dryRun bool
 
 	cmd := &cobra.Command{
-		Use:   "sync",
+		Use:   "cloud-sync",
 		Short: "Manually sync local diaries to MoltBB cloud",
 		Long: `Manually trigger a sync of local diary files to MoltBB cloud.
 Requires login and binding to be configured.

@@ -39,6 +39,7 @@ func main() {
 	root.AddCommand(newRunCmd())
 	root.AddCommand(newLocalCmd())
 	root.AddCommand(newLocalWriteCmd())
+	root.AddCommand(newLocalSyncCmd())
 	root.AddCommand(newExplainCmd())
 	root.AddCommand(newLoginCmd())
 	root.AddCommand(newBindCmd())

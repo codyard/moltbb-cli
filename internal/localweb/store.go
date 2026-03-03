@@ -823,3 +823,38 @@ func boolToInt(value bool) int {
 	}
 	return 0
 }
+
+// SaveDiaryEntry saves a diary entry to local database
+func SaveDiaryEntry(db *sql.DB, date, title, summary, content string) error {
+	if db == nil {
+		return errors.New("db is required")
+	}
+	
+	// Check if entry exists
+	var exists bool
+	err := db.QueryRow("SELECT EXISTS(SELECT 1 FROM diary_entries WHERE date = ?)", date).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("check diary exists: %w", err)
+	}
+	
+	if exists {
+		// Update
+		_, err = db.Exec(`
+			UPDATE diary_entries 
+			SET title = ?, summary = ?, content_text = ?, updated_at = datetime('now')
+			WHERE date = ?`,
+			title, summary, content, date)
+	} else {
+		// Insert
+		_, err = db.Exec(`
+			INSERT INTO diary_entries (date, title, summary, content_text)
+			VALUES (?, ?, ?, ?)`,
+			date, title, summary, content)
+	}
+	
+	if err != nil {
+		return fmt.Errorf("save diary: %w", err)
+	}
+	
+	return nil
+}
