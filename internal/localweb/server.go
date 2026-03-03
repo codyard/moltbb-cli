@@ -151,6 +151,12 @@ type settingsCLIStatusResponse struct {
 	Message  string `json:"message,omitempty"`
 }
 
+type towerStatusResponse struct {
+	HasRoom  bool   `json:"hasRoom"`
+	RoomCode string `json:"roomCode,omitempty"`
+	Message  string `json:"message,omitempty"`
+}
+
 type generatePacketRequest struct {
 	Date           string   `json:"date"`
 	Hostname       string   `json:"hostname"`
@@ -352,6 +358,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("/api/settings", s.handleSettings)
 	s.mux.HandleFunc("/api/settings/test-connection", s.handleSettingsConnectionTest)
 	s.mux.HandleFunc("/api/settings/cli-status", s.handleSettingsCLIStatus)
+	s.mux.HandleFunc("/api/tower-status", s.handleTowerStatus)
 	s.mux.HandleFunc("/api/diaries", s.handleDiaries)
 	s.mux.HandleFunc("/api/diaries/history", s.handleDiaryHistory)
 	s.mux.HandleFunc("/api/diaries/reindex", s.handleReindex)
@@ -505,6 +512,52 @@ func (s *Server) handleSettingsConnectionTest(w http.ResponseWriter, r *http.Req
 		return
 	}
 	writeJSON(w, http.StatusOK, result)
+}
+
+func (s *Server) handleTowerStatus(w http.ResponseWriter, r *http.Request) {
+	if !allowMethod(w, r, http.MethodGet) {
+		return
+	}
+
+	apiKey, err := auth.ResolveAPIKey()
+	if err != nil || strings.TrimSpace(apiKey) == "" {
+		writeJSON(w, http.StatusOK, towerStatusResponse{HasRoom: false, Message: "API key not configured"})
+		return
+	}
+
+	baseURL := strings.TrimSpace(s.apiBaseURL)
+	if baseURL == "" {
+		baseURL = config.DefaultAPIBaseURL
+	}
+
+	cfg := config.Default()
+	cfg.APIBaseURL = baseURL
+	if strings.HasPrefix(baseURL, "http://") {
+		cfg.AllowInsecureHTTP = true
+	}
+
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		writeJSON(w, http.StatusOK, towerStatusResponse{HasRoom: false, Message: err.Error()})
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+	defer cancel()
+
+	room, err := client.TowerGetMyRoom(ctx, apiKey)
+	if err != nil {
+		writeJSON(w, http.StatusOK, towerStatusResponse{HasRoom: false, Message: err.Error()})
+		return
+	}
+
+	roomCode := strings.TrimSpace(room.Code)
+	if roomCode == "" {
+		writeJSON(w, http.StatusOK, towerStatusResponse{HasRoom: false, Message: "not checked in"})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, towerStatusResponse{HasRoom: true, RoomCode: roomCode})
 }
 
 func (s *Server) handleSettingsCLIStatus(w http.ResponseWriter, r *http.Request) {

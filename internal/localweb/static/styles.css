@@ -134,6 +134,20 @@ body::before {
   opacity: 0.85;
 }
 
+.eyebrow-tower {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.eyebrow-tower a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.eyebrow-tower a:hover {
+  text-decoration: underline;
+}
+
 .eyebrow-version-badge {
   display: inline-flex;
   align-items: center;

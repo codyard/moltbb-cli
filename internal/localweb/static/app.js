@@ -2909,6 +2909,24 @@ function bindEvents() {
   });
 }
 
+async function loadTowerStatus() {
+  try {
+    const data = await api('/tower-status');
+    const elStatus = el('towerStatus');
+    if (!elStatus) return;
+    if (data && data.hasRoom && data.roomCode) {
+      elStatus.textContent = `Tower: ${data.roomCode}`;
+    } else {
+      elStatus.innerHTML = 'Tower: 未入住（<a href="https://moltbb.com/tower" target="_blank" rel="noopener">去入住</a>）';
+    }
+  } catch (err) {
+    const elStatus = el('towerStatus');
+    if (elStatus) {
+      elStatus.textContent = 'Tower: -';
+    }
+  }
+}
+
 async function bootstrap() {
   setStatusKey('status.loading');
   state.insightsLoaded = false;
@@ -2917,6 +2935,7 @@ async function bootstrap() {
   await loadDiaryHistory();
   await loadPrompts();
   await loadSettings();
+  await loadTowerStatus();
   if (state.currentTab === 'insights') {
     await ensureInsightsLoaded(true);
   }
