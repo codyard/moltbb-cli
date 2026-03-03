@@ -492,7 +492,14 @@ func (s *Server) handleSettingsConnectionTest(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	result, err := s.testSettingsConnection(strings.TrimSpace(req.APIKey))
+	apiKeyOverride := strings.TrimSpace(req.APIKey)
+	if apiKeyOverride == "" {
+		if creds, loadErr := auth.Load(); loadErr == nil {
+			apiKeyOverride = strings.TrimSpace(creds.APIKey)
+		}
+	}
+
+	result, err := s.testSettingsConnection(apiKeyOverride)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err)
 		return
