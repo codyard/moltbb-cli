@@ -50,6 +50,7 @@ func main() {
 	root.AddCommand(newTowerCmd())
 	root.AddCommand(newReminderCmd())
 	root.AddCommand(newSearchCmd())
+	root.AddCommand(newStatsCmd())
 	root.AddCommand(&cobra.Command{
 		Use:   "completion [shell]",
 		Short: "Generate completion script for your shell",
