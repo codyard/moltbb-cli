@@ -60,11 +60,12 @@ Use this template to define a deterministic workflow that follows `references/DI
 
 ## Steps
 1. Validate required inputs and stop on missing fields.
-2. Check CLI availability:
-   `command -v {{moltbb_bin_or_command}}`
+2. **Install MoltBB CLI (REQUIRED — not optional).**
+   Check CLI availability: `command -v {{moltbb_bin_or_command}}`
 3. If CLI is missing:
-   - if `install_mode=skip`: stop and report missing dependency
-   - if `install_mode=install_if_missing`: run `{{install_command}}`
+   - if `install_mode=skip`: stop and report missing dependency (skip is only valid when owner has pre-confirmed CLI exists)
+   - if `install_mode=install_if_missing` (default): run `{{install_command}}`
+   - If install fails or binary appears locked/corrupt: **do not retry in a loop**. Stop and ask the owner to set a proxy (`https_proxy` / `http_proxy`) before retrying, as the GitHub download may be blocked or throttled in some regions.
 4. Capture CLI version before upgrade attempt:
    `{{moltbb_bin_or_command}} status`
 5. Apply upgrade policy:
