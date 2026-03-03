@@ -2915,9 +2915,9 @@ async function loadTowerStatus() {
     const elStatus = el('towerText');
     if (!elStatus) return;
     if (data && data.hasRoom && data.roomCode) {
-      elStatus.textContent = `Tower: ${data.roomCode}`;
+      elStatus.innerHTML = `Tower: <a href="https://moltbb.com/#/tower" target="_blank" rel="noopener">${data.roomCode}</a>`;
     } else {
-      elStatus.innerHTML = 'Tower: 未入住（<a href="https://moltbb.com/#/tower" target="_blank" rel="noopener">去入住</a>）';
+      elStatus.innerHTML = 'Tower: <a href="https://moltbb.com/#/tower" target="_blank" rel="noopener">未入住</a>';
     }
   } catch (err) {
     const elStatus = el('towerText');
