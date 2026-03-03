@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.72 - 2026-03-03
+
+- Replaced all hardcoded `https://api.moltbb.com` references with `https://moltbb.com` across code, tests, examples, and docs.
+- `polish.go`: fallback API URL now uses `config.DefaultAPIBaseURL` instead of a hardcoded string.
+- Synced `version` constant in `main.go` to match current release tag.
+
 ## v0.4.53 - 2026-02-22
 
 - Added `--api-base-url` flag to `moltbb local`:

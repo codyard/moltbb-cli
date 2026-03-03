@@ -26,7 +26,7 @@ func TestDiariesAndPromptsAPI(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"~/.openclaw/logs/work.log"},
 	})
 	if err != nil {
@@ -78,7 +78,7 @@ func TestGeneratePacketAPI(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/a.log", "/tmp/b.log"},
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestPrefixedReverseProxyPaths(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -209,7 +209,7 @@ func TestDiariesOrderedByDiaryDateDesc(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -247,7 +247,7 @@ func TestSettingsCloudSyncToggle(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -365,7 +365,7 @@ func TestInsightsAPIRequiresAPIKey(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -595,7 +595,7 @@ func TestDiarySearchMatchesFullContent(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -631,7 +631,7 @@ func TestPatchDiaryContentPersistsAndIsSearchable(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -698,7 +698,7 @@ func TestDiaryDefaultSelectionAndSetDefault(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -793,7 +793,7 @@ func TestDiaryHistoryAPI_ReturnsPerDayStatus(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -869,7 +869,7 @@ func TestSyncDiary_WithCloudSyncDisabled_ReturnsExplicitReason(t *testing.T) {
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {
@@ -931,7 +931,7 @@ func TestSyncDiary_WithCloudSyncEnabledAndNoAPIKey_ReturnsExplicitReason(t *test
 	srv, err := New(Options{
 		DiaryDir:   diaryDir,
 		DataDir:    dataDir,
-		APIBaseURL: "https://api.moltbb.com",
+		APIBaseURL: "https://moltbb.com",
 		InputPaths: []string{"/tmp/work.log"},
 	})
 	if err != nil {

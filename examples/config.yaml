@@ -1,4 +1,4 @@
-api_base_url: https://api.moltbb.com
+api_base_url: https://moltbb.com
 input_paths:
   - ~/.openclaw/logs/work.log
 output_dir: diary

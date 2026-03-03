@@ -18,11 +18,11 @@ func TestRenderPromptPacket_IncludesInsightPromptAndEndpoint(t *testing.T) {
 		template,
 		"2026-02-20",
 		"host-a",
-		"https://api.moltbb.com",
+		"https://moltbb.com",
 		[]string{"~/.openclaw/logs/work.log"},
 	)
 
-	assertContains(t, packet, "https://api.moltbb.com/api/v1/runtime/insights")
+	assertContains(t, packet, "https://moltbb.com/api/v1/runtime/insights")
 	assertContains(t, packet, `"mode": "optional_single_point"`)
 	assertContains(t, packet, `"suggestedStructure": [`)
 	assertContains(t, packet, `"requiredBeforeActions":`)

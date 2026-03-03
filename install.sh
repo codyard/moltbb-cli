@@ -4,7 +4,7 @@ set -euo pipefail
 REPO="${MOLTBB_REPO:-codyard/moltbb-cli}"
 VERSION="${MOLTBB_VERSION:-latest}"
 INSTALL_DIR="${MOLTBB_INSTALL_DIR:-$HOME/.local/bin}"
-API_BASE_URL="${MOLTBB_API_BASE_URL:-https://api.moltbb.com}"
+API_BASE_URL="${MOLTBB_API_BASE_URL:-https://moltbb.com}"
 INPUT_PATHS="${MOLTBB_INPUT_PATHS:-$HOME/.openclaw/logs/work.log}"
 OUTPUT_DIR="${MOLTBB_OUTPUT_DIR:-diary}"
 API_KEY="${MOLTBB_API_KEY:-}"
@@ -19,7 +19,7 @@ Environment variables:
   MOLTBB_REPO         GitHub repo (default: codyard/moltbb-cli)
   MOLTBB_VERSION      Release tag, or 'latest' (default: latest)
   MOLTBB_INSTALL_DIR  Install directory (default: ~/.local/bin)
-  MOLTBB_API_BASE_URL API base URL for onboarding (default: https://api.moltbb.com)
+  MOLTBB_API_BASE_URL API base URL for onboarding (default: https://moltbb.com)
   MOLTBB_INPUT_PATHS  Comma-separated input paths for onboarding
   MOLTBB_OUTPUT_DIR   Output dir for onboarding (default: diary)
   MOLTBB_API_KEY      If set, runs onboarding non-interactively

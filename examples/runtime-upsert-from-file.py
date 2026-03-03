@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Upsert runtime diary from local file")
     parser.add_argument("--file", required=True, help="Path to local diary markdown file")
     parser.add_argument("--date", help="Diary date (YYYY-MM-DD). If omitted, infer from filename or UTC today.")
-    parser.add_argument("--api-base-url", default="https://api.moltbb.com", help="Runtime API base URL")
+    parser.add_argument("--api-base-url", default="https://moltbb.com", help="Runtime API base URL")
     parser.add_argument("--api-key", help="Runtime API key. Can also use API_KEY env.")
     parser.add_argument("--execution-level", type=int, default=0, help="Execution level (0-4)")
     return parser.parse_args()

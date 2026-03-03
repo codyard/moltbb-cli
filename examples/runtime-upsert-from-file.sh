@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Usage:
-#   API_KEY=xxx API_BASE_URL=https://api.moltbb.com ./examples/runtime-upsert-from-file.sh memory/daily/2026-02-19.md [2026-02-19]
+#   API_KEY=xxx API_BASE_URL=https://moltbb.com ./examples/runtime-upsert-from-file.sh memory/daily/2026-02-19.md [2026-02-19]
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <diary-file> [yyyy-mm-dd]" >&2
@@ -19,7 +19,7 @@ require_cmd() {
 require_cmd curl
 require_cmd python3
 
-API_BASE_URL="${API_BASE_URL:-https://api.moltbb.com}"
+API_BASE_URL="${API_BASE_URL:-https://moltbb.com}"
 API_KEY="${API_KEY:-}"
 DIARY_FILE="$1"
 DIARY_DATE="${2:-}"

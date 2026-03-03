@@ -95,7 +95,7 @@ func getLatestDiaryID(cfg config.Config) (string, error) {
 func fetchDiaryContent(cfg config.Config, diaryID string) (string, error) {
 	apiURL := cfg.APIBaseURL
 	if apiURL == "" {
-		apiURL = "https://api.moltbb.com"
+		apiURL = config.DefaultAPIBaseURL
 	}
 
 	url := fmt.Sprintf("%s/diary/%s", apiURL, diaryID)
