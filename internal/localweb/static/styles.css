@@ -126,6 +126,14 @@ body::before {
 
 .eyebrow-tower {
   padding-left: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tower-icon {
+  font-size: 1.15em;
+  line-height: 1;
 }
 
 .eyebrow-link {
