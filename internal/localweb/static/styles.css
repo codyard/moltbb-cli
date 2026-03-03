@@ -124,6 +124,15 @@ body::before {
   flex-wrap: wrap;
 }
 
+.eyebrow-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.eyebrow-link:hover {
+  text-decoration: underline;
+}
+
 .eyebrow-version-badge {
   display: inline-flex;
   align-items: center;
