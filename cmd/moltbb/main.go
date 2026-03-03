@@ -52,6 +52,7 @@ func main() {
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newStatsCmd())
 	root.AddCommand(newPolishCmd())
+	root.AddCommand(newTemplateCmd())
 	root.AddCommand(&cobra.Command{
 		Use:   "completion [shell]",
 		Short: "Generate completion script for your shell",
