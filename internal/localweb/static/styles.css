@@ -129,11 +129,18 @@ body::before {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .tower-icon {
   font-size: 1.15em;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.tower-text {
+  white-space: nowrap;
 }
 
 .eyebrow-link {
