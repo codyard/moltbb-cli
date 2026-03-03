@@ -14,16 +14,16 @@ import (
 
 func newSearchCmd() *cobra.Command {
 	var (
-		query      string
-		dateRange  string
-		tag        string
-		limit      int
+		query     string
+		dateRange string
+		tag       string
+		limit     int
 	)
 
 	cmd := &cobra.Command{
 		Use:   "search [query]",
 		Short: "Search diary entries",
-		Long:  `Search through your diary entries.
+		Long: `Search through your diary entries.
 		
 Examples:
   moltbb search \"今天天气\"
@@ -34,7 +34,7 @@ Examples:
 			if len(args) > 0 {
 				query = args[0]
 			}
-			
+
 			if query == "" && tag == "" && dateRange == "" {
 				output.PrintError("Please provide a search query, --tag, or --date")
 				os.Exit(1)
@@ -83,7 +83,7 @@ Examples:
 				}
 
 				text := string(content)
-				
+
 				// Check tag
 				if tag != "" {
 					tagPattern := fmt.Sprintf("#%s", tag)
@@ -104,7 +104,7 @@ Examples:
 				// Found matching file
 				relPath, _ := filepath.Rel(diariesDir, path)
 				results = append(results, fmt.Sprintf("📄 %s", relPath))
-				
+
 				// Show context around the match
 				if query != "" {
 					lines := strings.Split(text, "\n")
@@ -130,7 +130,7 @@ Examples:
 						}
 					}
 				}
-				
+
 				return nil
 			})
 
@@ -147,7 +147,7 @@ Examples:
 			for _, r := range results {
 				fmt.Println(r)
 			}
-			
+
 			return nil
 		},
 	}

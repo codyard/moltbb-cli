@@ -16,14 +16,14 @@ import (
 
 func newPolishCmd() *cobra.Command {
 	var (
-		model     string
-		openai    bool
+		model  string
+		openai bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "polish [diary-id]",
 		Short: "Polish/revise diary entries with AI",
-		Long:  `Use AI to improve your diary writing.
+		Long: `Use AI to improve your diary writing.
 		
 Examples:
   moltbb polish              # Polish latest diary
@@ -31,7 +31,7 @@ Examples:
   moltbb polish --openai    # Use OpenAI instead of local model`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-		cfg, err := config.Load()
+			cfg, err := config.Load()
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ func fetchDiaryContent(cfg config.Config, diaryID string) (string, error) {
 	}
 
 	url := fmt.Sprintf("%s/diary/%s", apiURL, diaryID)
-	
+
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -143,13 +143,13 @@ func polishWithOpenAI(cfg config.Config, prompt string) (string, error) {
 	}
 
 	data := map[string]interface{}{
-		"model":      "gpt-4",
-		"messages":   []map[string]string{{"role": "user", "content": prompt}},
+		"model":       "gpt-4",
+		"messages":    []map[string]string{{"role": "user", "content": prompt}},
 		"temperature": 0.7,
 	}
 
 	jsonData, _ := json.Marshal(data)
-	
+
 	req, _ := http.NewRequest("POST", "https://api.openai.com/v1/chat/completions", bytes.NewBuffer(jsonData))
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -175,7 +175,7 @@ func polishWithOpenAI(cfg config.Config, prompt string) (string, error) {
 func polishWithOllama(cfg config.Config, prompt string) (string, error) {
 	// Try local Ollama first
 	ollamaURL := "http://localhost:11434"
-	
+
 	// Check if Ollama is available
 	resp, err := http.Get(ollamaURL + "/api/tags")
 	if err == nil {
@@ -192,7 +192,7 @@ func polishWithOllama(cfg config.Config, prompt string) (string, error) {
 	}
 
 	jsonData, _ := json.Marshal(data)
-	
+
 	client := &http.Client{Timeout: 120 * time.Second}
 	httpResp, err := client.Post(ollamaURL+"/api/generate", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {

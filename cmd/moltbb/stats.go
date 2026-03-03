@@ -15,15 +15,15 @@ import (
 
 func newStatsCmd() *cobra.Command {
 	var (
-		year       int
-		month      string
-		all        bool
+		year  int
+		month string
+		all   bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "stats",
 		Short: "Show diary statistics",
-		Long:  `Display statistics about your diary entries.
+		Long: `Display statistics about your diary entries.
 		
 Examples:
   moltbb stats
@@ -75,7 +75,7 @@ Examples:
 				}
 
 				filename := filepath.Base(path)
-				
+
 				// Check year filter
 				yearStr := fmt.Sprintf("%d", year)
 				if !strings.Contains(filename, yearStr) {
@@ -136,7 +136,7 @@ Examples:
 
 			// Print stats
 			output.PrintSection("📊 Diary Statistics")
-			
+
 			fmt.Printf("Total Entries:     %d\n", totalEntries)
 			fmt.Printf("Total Words:       %d\n", totalWords)
 			fmt.Printf("Total Characters: %d\n", totalChars)
@@ -144,7 +144,7 @@ Examples:
 				fmt.Printf("Avg Words/Entry:   %d\n", totalWords/totalEntries)
 			}
 			fmt.Printf("Current Streak:   %d days\n", streak)
-			
+
 			if len(entriesByMonth) > 0 {
 				output.PrintSection("📅 Entries by Month")
 				for month, count := range entriesByMonth {
@@ -198,7 +198,7 @@ func calculateStreak(dates []string) int {
 	// Count consecutive days
 	streak := 0
 	current := time.Now()
-	
+
 	for {
 		dateStr := current.Format("2006-01-02")
 		if dateSet[dateStr] {

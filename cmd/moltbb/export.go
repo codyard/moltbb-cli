@@ -12,8 +12,8 @@ import (
 
 func newExportCmd() *cobra.Command {
 	var (
-		format string
-		range_ string
+		format  string
+		range_  string
 		output_ string
 	)
 
@@ -24,7 +24,7 @@ func newExportCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			homeDir, _ := os.UserHomeDir()
 			diariesDir := filepath.Join(homeDir, "moltbb", "diaries")
-			
+
 			if _, err := os.Stat(diariesDir); os.IsNotExist(err) {
 				output.PrintInfo("No local diaries found. Use 'moltbb local' to sync.")
 				return nil
@@ -87,7 +87,7 @@ func exportJSON(files []string, output_ string) error {
 	if output_ == "" {
 		output_ = "diaries.json"
 	}
-	
+
 	return ioutil.WriteFile(output_, []byte(content), 0644)
 }
 
@@ -101,6 +101,6 @@ func exportTXT(files []string, output_ string) error {
 	if output_ == "" {
 		output_ = "diaries.txt"
 	}
-	
+
 	return ioutil.WriteFile(output_, []byte(content), 0644)
 }

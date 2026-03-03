@@ -86,15 +86,15 @@ func newTemplateListCmd() *cobra.Command {
 		Short: "List available templates",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			output.PrintSection("📋 Available Templates")
-			
+
 			fmt.Println("Default Templates:")
 			for name := range defaultTemplates {
 				fmt.Printf("  • %s\n", name)
 			}
-			
+
 			homeDir, _ := os.UserHomeDir()
 			templatesDir := filepath.Join(homeDir, ".moltbb", "templates")
-			
+
 			if _, err := os.Stat(templatesDir); err == nil {
 				files, _ := ioutil.ReadDir(templatesDir)
 				if len(files) > 0 {
@@ -105,7 +105,7 @@ func newTemplateListCmd() *cobra.Command {
 					}
 				}
 			}
-			
+
 			return nil
 		},
 	}
@@ -131,7 +131,7 @@ func newTemplateUseCmd() *cobra.Command {
 				}
 				content = string(templateBytes)
 			}
-			
+
 			content = replaceTemplatePlaceholders(content, date)
 			fmt.Println(content)
 			fmt.Println("\n💡 Copy and edit, then use 'moltbb diary create' to save.")
@@ -153,12 +153,12 @@ func newTemplateCreateCmd() *cobra.Command {
 			templatesDir := filepath.Join(homeDir, ".moltbb", "templates")
 			os.MkdirAll(templatesDir, 0755)
 			templatePath := filepath.Join(templatesDir, templateName+".md")
-			
+
 			if _, err := os.Stat(templatePath); err == nil {
 				output.PrintError("Template already exists")
 				os.Exit(1)
 			}
-			
+
 			content := defaultTemplates["daily"]
 			ioutil.WriteFile(templatePath, []byte(content), 0644)
 			output.Success("Template created: " + templateName)

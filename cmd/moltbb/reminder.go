@@ -12,11 +12,11 @@ import (
 
 func newReminderCmd() *cobra.Command {
 	var (
-		timeStr     string
-		message     string
-		channel     string
-		list        bool
-		removeID    string
+		timeStr        string
+		message        string
+		channel        string
+		list           bool
+		removeID       string
 		enableOpenClaw bool
 	)
 
@@ -45,7 +45,7 @@ Examples:
 				}
 				output.Info("Configured reminders:")
 				for i, r := range reminders {
-					fmt.Printf("%d. Time: %s | Message: %s | Channel: %s\n", 
+					fmt.Printf("%d. Time: %s | Message: %s | Channel: %s\n",
 						i+1, r.Time, r.Message, r.Channel)
 				}
 				return nil
@@ -70,7 +70,7 @@ Examples:
 				cfg.Reminders = newReminders
 				config.Save(cfg)
 				output.Success("Reminder removed")
-				
+
 				if enableOpenClaw {
 					return syncRemindersToOpenClaw(cfg.Reminders)
 				}
@@ -104,13 +104,13 @@ Examples:
 
 			cfg.Reminders = append(cfg.Reminders, reminder)
 			config.Save(cfg)
-			output.Success(fmt.Sprintf("Reminder added: %s - %s (%s)", 
+			output.Success(fmt.Sprintf("Reminder added: %s - %s (%s)",
 				timeStr, message, channel))
 
 			if enableOpenClaw {
 				return syncRemindersToOpenClaw(cfg.Reminders)
 			}
-			
+
 			output.Info("Use --opentclaw to sync reminders to OpenClaw")
 			return nil
 		},
@@ -128,7 +128,7 @@ Examples:
 
 func syncRemindersToOpenClaw(reminders []config.Reminder) error {
 	output.Info("Syncing reminders to OpenClaw...")
-	
+
 	// For each reminder, create an OpenClaw cron job
 	for i, r := range reminders {
 		// Convert HH:MM to cron format (UTC time)
@@ -137,26 +137,26 @@ func syncRemindersToOpenClaw(reminders []config.Reminder) error {
 			output.PrintWarning(fmt.Sprintf("Invalid time format: %s", r.Time))
 			continue
 		}
-		
+
 		// Create cron expression: minute hour * * *
 		// Note: This uses the time as-is, assuming it's in the user's timezone
 		// The user would need to handle timezone conversion
 		cronExpr := fmt.Sprintf("%s %s * * *", parts[1], parts[0])
-		
+
 		// Generate job name and payload
 		jobName := fmt.Sprintf("moltbb-reminder-%d", i+1)
 		message := fmt.Sprintf("【日记提醒】%s", r.Message)
-		
+
 		output.Info(fmt.Sprintf("Creating cron job: %s at %s", jobName, cronExpr))
 		fmt.Printf("  Would create: %s - %s\n", jobName, message)
-		
+
 		// Note: Actual OpenClaw cron API call would go here
 		// For now, we provide instructions
 	}
-	
+
 	output.Success(fmt.Sprintf("Synced %d reminders to OpenClaw", len(reminders)))
 	output.Info("To create actual cron jobs, run:")
 	fmt.Println("  openclaw cron add --help")
-	
+
 	return nil
 }
