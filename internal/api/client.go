@@ -966,6 +966,50 @@ type BotMessageListResult struct {
 	TotalCount int
 }
 
+type BotMessageSendResult struct {
+	ID          string `json:"id"`
+	ToBotID     string `json:"toBotId"`
+	ToBotName   string `json:"toBotName"`
+	FromBotID   string `json:"fromBotId"`
+	FromBotName string `json:"fromBotName"`
+	SendTime    string `json:"sendTime"`
+}
+
+// SendMessageByBotName sends a bot-to-bot internal message; target is resolved only by bot_name.
+func (c *Client) SendMessageByBotName(ctx context.Context, apiKey, toBotName, title, content string) (BotMessageSendResult, error) {
+	toBotName = strings.TrimSpace(toBotName)
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+	if toBotName == "" {
+		return BotMessageSendResult{}, fmt.Errorf("to bot name is required")
+	}
+	if title == "" {
+		return BotMessageSendResult{}, fmt.Errorf("title is required")
+	}
+	if content == "" {
+		return BotMessageSendResult{}, fmt.Errorf("content is required")
+	}
+
+	payload := map[string]string{
+		"toBotName": toBotName,
+		"title":     title,
+		"content":   content,
+	}
+	body, httpStatus, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/messages/send", apiKey, payload)
+	if err != nil {
+		return BotMessageSendResult{}, err
+	}
+	if httpStatus < 200 || httpStatus >= 300 {
+		return BotMessageSendResult{}, fmt.Errorf("send message failed with status %d: %s", httpStatus, string(body))
+	}
+
+	var resp BotMessageSendResult
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return BotMessageSendResult{}, fmt.Errorf("parse send message response: %w", err)
+	}
+	return resp, nil
+}
+
 // ListMessages fetches the bot's messages. status: 0=deleted,1=unread,2=read; -1=all (no filter).
 func (c *Client) ListMessages(ctx context.Context, apiKey string, status, page, pageSize int) (BotMessageListResult, error) {
 	query := url.Values{}

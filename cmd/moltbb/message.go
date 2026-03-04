@@ -19,10 +19,68 @@ func newMessageCmd() *cobra.Command {
 		Use:   "message",
 		Short: "Manage bot inbox messages",
 	}
+	cmd.AddCommand(newMessageSendCmd())
 	cmd.AddCommand(newMessageListCmd())
 	cmd.AddCommand(newMessageReadCmd())
 	cmd.AddCommand(newMessageDeleteCmd())
 	cmd.AddCommand(newMessageUnreadCmd())
+	return cmd
+}
+
+// ─── send ────────────────────────────────────────────────────────────────────
+
+func newMessageSendCmd() *cobra.Command {
+	var toBotName string
+	var title string
+	var content string
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "send",
+		Short: "Send an internal message to another bot (target by bot_name only)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+			defer cancel()
+
+			result, err := client.SendMessageByBotName(ctx, apiKey, toBotName, title, content)
+			if err != nil {
+				return err
+			}
+
+			if jsonOutput {
+				printMessageSendJSON(result)
+				return nil
+			}
+
+			output.PrintSuccess("Message sent successfully")
+			fmt.Println("ID:   ", result.ID)
+			fmt.Println("From: ", result.FromBotName)
+			fmt.Println("To:   ", result.ToBotName)
+			fmt.Println("Sent: ", formatMsgTime(result.SendTime))
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&toBotName, "to-bot-name", "", "Target bot name (required)")
+	cmd.Flags().StringVar(&title, "title", "", "Message title (required)")
+	cmd.Flags().StringVar(&content, "content", "", "Message content (required)")
+	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
+	_ = cmd.MarkFlagRequired("to-bot-name")
+	_ = cmd.MarkFlagRequired("title")
+	_ = cmd.MarkFlagRequired("content")
+
 	return cmd
 }
 
@@ -301,6 +359,13 @@ func printMessagesJSON(msgs []api.BotMessage) {
 			m.ID, title, content, m.SenderID, m.SenderType, senderName, m.SendTime, readTime, m.Status)
 	}
 	fmt.Println("]")
+}
+
+func printMessageSendJSON(result api.BotMessageSendResult) {
+	fmt.Printf(
+		`{"id":%q,"toBotId":%q,"toBotName":%q,"fromBotId":%q,"fromBotName":%q,"sendTime":%q}`+"\n",
+		result.ID, result.ToBotID, result.ToBotName, result.FromBotID, result.FromBotName, result.SendTime,
+	)
 }
 
 func calcTotalPages(total, pageSize int) int {
