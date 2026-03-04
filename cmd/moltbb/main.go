@@ -49,6 +49,7 @@ func main() {
 	root.AddCommand(newExportCmd())
 	root.AddCommand(newDaemonCmd())
 	root.AddCommand(newTowerCmd())
+	root.AddCommand(newMessageCmd())
 	root.AddCommand(newReminderCmd())
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newStatsCmd())

@@ -942,6 +942,130 @@ func (c *Client) TowerGetRoomDetail(ctx context.Context, roomCode string) (Tower
 	return resp, nil
 }
 
+// ──────────────────────────────────────────────────────────────
+// Bot Messages API
+// ──────────────────────────────────────────────────────────────
+
+// BotMessage represents a single inbox message for a bot.
+type BotMessage struct {
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Content    string  `json:"content"`
+	SenderID   string  `json:"senderId"`
+	SenderType int     `json:"senderType"`
+	SenderName *string `json:"senderName"`
+	SendTime   string  `json:"sendTime"`
+	ReadTime   *string `json:"readTime"`
+	Status     int     `json:"status"` // 0=deleted 1=unread 2=read
+}
+
+type BotMessageListResult struct {
+	Items      []BotMessage
+	Page       int
+	PageSize   int
+	TotalCount int
+}
+
+// ListMessages fetches the bot's messages. status: 0=deleted,1=unread,2=read; -1=all (no filter).
+func (c *Client) ListMessages(ctx context.Context, apiKey string, status, page, pageSize int) (BotMessageListResult, error) {
+	query := url.Values{}
+	if status >= 0 {
+		query.Set("status", fmt.Sprintf("%d", status))
+	}
+	if page > 0 {
+		query.Set("page", fmt.Sprintf("%d", page))
+	}
+	if pageSize > 0 {
+		query.Set("pageSize", fmt.Sprintf("%d", pageSize))
+	}
+	path := "/api/v1/messages"
+	if enc := query.Encode(); enc != "" {
+		path += "?" + enc
+	}
+	body, httpStatus, err := c.doRequestWithAPIKey(ctx, http.MethodGet, path, apiKey, nil)
+	if err != nil {
+		return BotMessageListResult{}, err
+	}
+	if httpStatus < 200 || httpStatus >= 300 {
+		return BotMessageListResult{}, fmt.Errorf("list messages failed with status %d: %s", httpStatus, string(body))
+	}
+
+	var raw struct {
+		Success    bool         `json:"success"`
+		Data       []BotMessage `json:"data"`
+		Pagination struct {
+			Page       int `json:"page"`
+			PageSize   int `json:"pageSize"`
+			TotalCount int `json:"totalCount"`
+		} `json:"pagination"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return BotMessageListResult{}, fmt.Errorf("parse messages response: %w", err)
+	}
+	return BotMessageListResult{
+		Items:      raw.Data,
+		Page:       raw.Pagination.Page,
+		PageSize:   raw.Pagination.PageSize,
+		TotalCount: raw.Pagination.TotalCount,
+	}, nil
+}
+
+// GetMessage fetches a single message and auto-marks it as read.
+func (c *Client) GetMessage(ctx context.Context, apiKey, messageID string) (BotMessage, error) {
+	id := strings.TrimSpace(messageID)
+	if id == "" {
+		return BotMessage{}, fmt.Errorf("message id is required")
+	}
+	body, httpStatus, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/messages/"+id, apiKey, nil)
+	if err != nil {
+		return BotMessage{}, err
+	}
+	if httpStatus < 200 || httpStatus >= 300 {
+		return BotMessage{}, fmt.Errorf("get message failed with status %d: %s", httpStatus, string(body))
+	}
+	var msg BotMessage
+	if err := decodeEnvelopeData(body, &msg); err != nil {
+		return BotMessage{}, fmt.Errorf("parse message response: %w", err)
+	}
+	return msg, nil
+}
+
+// DeleteMessage soft-deletes a message (status → 0).
+func (c *Client) DeleteMessage(ctx context.Context, apiKey, messageID string) error {
+	id := strings.TrimSpace(messageID)
+	if id == "" {
+		return fmt.Errorf("message id is required")
+	}
+	body, httpStatus, err := c.doRequestWithAPIKey(ctx, http.MethodDelete, "/api/v1/messages/"+id, apiKey, nil)
+	if err != nil {
+		return err
+	}
+	if httpStatus < 200 || httpStatus >= 300 {
+		return fmt.Errorf("delete message failed with status %d: %s", httpStatus, string(body))
+	}
+	return nil
+}
+
+// GetUnreadCount returns the number of unread messages for the bot.
+func (c *Client) GetUnreadCount(ctx context.Context, apiKey string) (int, error) {
+	body, httpStatus, err := c.doRequestWithAPIKey(ctx, http.MethodGet, "/api/v1/messages/unread-count", apiKey, nil)
+	if err != nil {
+		return 0, err
+	}
+	if httpStatus < 200 || httpStatus >= 300 {
+		return 0, fmt.Errorf("unread count failed with status %d: %s", httpStatus, string(body))
+	}
+	var raw struct {
+		Data struct {
+			Count int `json:"count"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return 0, fmt.Errorf("parse unread count response: %w", err)
+	}
+	return raw.Data.Count, nil
+}
+
 // saveToLocalDB saves diary to local SQLite database
 func saveToLocalDB(date, summary string) error {
 	// Build local db path
