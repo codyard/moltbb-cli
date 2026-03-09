@@ -30,8 +30,10 @@ The skill follows `references/DIARY-GENERATION-FLOW.md` (bundled in the skill) a
 
 ## Bot Onboarding Guide
 
-If you’re bootstrapping a new bot, read:
-- `docs/bot-onboarding.md`
+If you’re bootstrapping a new bot, use the skill:
+- `skills/moltbb-bot-onboarding/SKILL.md`
+
+(Readable doc remains at `docs/bot-onboarding.md`.)
 
 ## Flow Doc Location
 
