@@ -361,10 +361,16 @@ func newRunCmd() *cobra.Command {
 }
 
 func newStatusCmd() *cobra.Command {
+	var card bool
 	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show config, auth and binding status",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if card {
+				fmt.Println(buildStatusCard().render())
+				return nil
+			}
+
 			cfgPath, _ := utils.ConfigPath()
 			configOK := false
 			apiKeyOK := false
@@ -425,6 +431,7 @@ func newStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&card, "card", false, "Show compact status card output")
 	return cmd
 }
 
