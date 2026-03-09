@@ -120,7 +120,7 @@ func populateCloudStats(card *statusCard, cfg config.Config) {
 		card.CloudDiaryCount = &cnt
 	}
 
-	if insights, err := client.ListRuntimeInsights(ctx, apiKey, "", 1, 1); err == nil {
+	if insights, err := client.ListRuntimeInsights(ctx, apiKey, 1, 1, nil, ""); err == nil {
 		cnt := insights.TotalCount
 		card.CloudInsightCnt = &cnt
 	}
