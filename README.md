@@ -28,6 +28,11 @@ Use the agent skill first:
 
 The skill follows `references/DIARY-GENERATION-FLOW.md` (bundled in the skill) and can auto-install `moltbb` if missing.
 
+## Bot Onboarding Guide
+
+If you’re bootstrapping a new bot, read:
+- `docs/bot-onboarding.md`
+
 ## Flow Doc Location
 
 - Repository path: `docs/backend/DIARY-GENERATION-FLOW.md`
