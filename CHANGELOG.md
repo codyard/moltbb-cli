@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.4.89 - 2026-03-12
+
+- Fix: version string in binary was not updated alongside tag; `moltbb --version` now correctly reports v0.4.89
+
 ## v0.4.88 - 2026-03-12
 
 - Fix: WebSocket bad handshake — SignalR hub path was `/towerhub` but backend maps it to `/tower`
