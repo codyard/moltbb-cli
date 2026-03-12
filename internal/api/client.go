@@ -1110,6 +1110,280 @@ func (c *Client) GetUnreadCount(ctx context.Context, apiKey string) (int, error)
 	return raw.Data.Count, nil
 }
 
+// ──────────────────────────────────────────────────────────────
+// Pipeline API types
+// ──────────────────────────────────────────────────────────────
+
+// PipelineSessionInvitationResponse is returned when a bot creates a session invitation.
+type PipelineSessionInvitationResponse struct {
+	SessionToken               string `json:"sessionToken"`
+	InitiatorBotId             string `json:"initiatorBotId"`
+	ResponderBotId             string `json:"responderBotId"`
+	InitiatorMonitoringEnabled bool   `json:"initiatorMonitoringEnabled"`
+	ResponderMonitoringEnabled bool   `json:"responderMonitoringEnabled"`
+	CreatedAt                  string `json:"createdAt"`
+	ExpiresAt                  string `json:"expiresAt"`
+}
+
+// PipelineSessionResponse is returned for session lifecycle actions.
+type PipelineSessionResponse struct {
+	SessionId                  string  `json:"sessionId"`
+	SessionToken               string  `json:"sessionToken"`
+	InitiatorBotId             string  `json:"initiatorBotId"`
+	InitiatorBotName           string  `json:"initiatorBotName"`
+	ResponderBotId             string  `json:"responderBotId"`
+	ResponderBotName           string  `json:"responderBotName"`
+	Status                     string  `json:"status"`
+	CreatedAt                  string  `json:"createdAt"`
+	ActivatedAt                *string `json:"activatedAt,omitempty"`
+	CompletedAt                *string `json:"completedAt,omitempty"`
+	ExpiresAt                  string  `json:"expiresAt"`
+	MessageCount               int     `json:"messageCount"`
+	DurationSeconds            *int    `json:"durationSeconds,omitempty"`
+	RejectionReason            *string `json:"rejectionReason,omitempty"`
+	InitiatorMonitoringEnabled bool    `json:"initiatorMonitoringEnabled"`
+	ResponderMonitoringEnabled bool    `json:"responderMonitoringEnabled"`
+}
+
+// PipelineMessageResponse is returned when a message is sent.
+type PipelineMessageResponse struct {
+	SessionToken   string                  `json:"sessionToken"`
+	SenderBotId    string                  `json:"senderBotId"`
+	RecipientBotId string                  `json:"recipientBotId"`
+	Content        string                  `json:"content"`
+	SentAt         string                  `json:"sentAt"`
+	Encryption     *PipelineEncryptionMeta `json:"encryption,omitempty"`
+	Delivered      bool                    `json:"delivered"`
+	Queued         bool                    `json:"queued"`
+}
+
+// PipelineEncryptionMeta carries optional encryption metadata for a message.
+type PipelineEncryptionMeta struct {
+	Algorithm string `json:"algorithm"`
+	KeyId     string `json:"keyId"`
+}
+
+// PipelineSessionMetadata is a lightweight session summary (used in history).
+type PipelineSessionMetadata struct {
+	SessionToken     string  `json:"sessionToken"`
+	InitiatorBotId   string  `json:"initiatorBotId"`
+	InitiatorBotName string  `json:"initiatorBotName"`
+	ResponderBotId   string  `json:"responderBotId"`
+	ResponderBotName string  `json:"responderBotName"`
+	Status           string  `json:"status"`
+	CreatedAt        string  `json:"createdAt"`
+	ActivatedAt      *string `json:"activatedAt,omitempty"`
+	CompletedAt      *string `json:"completedAt,omitempty"`
+	MessageCount     int     `json:"messageCount"`
+	DurationSeconds  *int    `json:"durationSeconds,omitempty"`
+}
+
+// PipelineSessionListResult holds a paginated list of session metadata.
+type PipelineSessionListResult struct {
+	Items      []PipelineSessionMetadata
+	Page       int
+	PageSize   int
+	TotalCount int
+}
+
+// PipelineConnectionStatus describes a bot's current pipeline connection.
+type PipelineConnectionStatus struct {
+	BotId               string  `json:"botId"`
+	IsOnline            bool    `json:"isOnline"`
+	LastHeartbeat       *string `json:"lastHeartbeat,omitempty"`
+	ActiveSessionsCount int     `json:"activeSessionsCount"`
+	QueuedMessagesCount int     `json:"queuedMessagesCount"`
+}
+
+// ──────────────────────────────────────────────────────────────
+// Pipeline REST API methods
+// ──────────────────────────────────────────────────────────────
+
+// PipelineGetSessionHistory returns the authenticated bot's session history.
+func (c *Client) PipelineGetSessionHistory(ctx context.Context, apiKey string, page, pageSize int) (PipelineSessionListResult, error) {
+	q := url.Values{}
+	q.Set("page", fmt.Sprintf("%d", page))
+	q.Set("pageSize", fmt.Sprintf("%d", pageSize))
+	path := "/api/v1/pipeline/sessions/history?" + q.Encode()
+
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", path, apiKey, nil)
+	if err != nil {
+		return PipelineSessionListResult{}, err
+	}
+	if status < 200 || status >= 300 {
+		return PipelineSessionListResult{}, fmt.Errorf("pipeline history failed (%d): %s", status, string(body))
+	}
+
+	var raw struct {
+		Success    bool                      `json:"success"`
+		Data       []PipelineSessionMetadata `json:"data"`
+		Pagination struct {
+			Page       int `json:"page"`
+			PageSize   int `json:"pageSize"`
+			TotalCount int `json:"totalCount"`
+		} `json:"pagination"`
+	}
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return PipelineSessionListResult{}, fmt.Errorf("parse history response: %w", err)
+	}
+	return PipelineSessionListResult{
+		Items:      raw.Data,
+		Page:       raw.Pagination.Page,
+		PageSize:   raw.Pagination.PageSize,
+		TotalCount: raw.Pagination.TotalCount,
+	}, nil
+}
+
+// PipelineGetSession returns a single session by its token.
+func (c *Client) PipelineGetSession(ctx context.Context, apiKey string, sessionToken string) (*PipelineSessionResponse, error) {
+	path := "/api/v1/pipeline/sessions/" + strings.TrimSpace(sessionToken)
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", path, apiKey, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status == 404 {
+		return nil, fmt.Errorf("session not found")
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get session failed (%d): %s", status, string(body))
+	}
+	var resp PipelineSessionResponse
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse session response: %w", err)
+	}
+	return &resp, nil
+}
+
+// PipelineGetConnectionStatus returns a bot's current pipeline connection status.
+func (c *Client) PipelineGetConnectionStatus(ctx context.Context, apiKey string, botId string) (*PipelineConnectionStatus, error) {
+	path := "/api/v1/pipeline/connections/" + strings.TrimSpace(botId) + "/status"
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", path, apiKey, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get connection status failed (%d): %s", status, string(body))
+	}
+	var resp PipelineConnectionStatus
+	if err := decodeEnvelopeData(body, &resp); err != nil {
+		return nil, fmt.Errorf("parse connection status response: %w", err)
+	}
+	return &resp, nil
+}
+
+// ──────────────────────────────────────────────────────────────
+// Pipeline SignalR helper methods
+// Each opens a one-shot connection, invokes the method, and closes.
+// ──────────────────────────────────────────────────────────────
+
+// PipelineSendInvitation sends a session invitation via TowerHub SignalR.
+func (c *Client) PipelineSendInvitation(ctx context.Context, apiKey, responderBotId string) (*PipelineSessionInvitationResponse, error) {
+	sc, err := c.ConnectToHub(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+
+	if err := sc.InvokeVoid(ctx, "JoinPipeline"); err != nil {
+		return nil, fmt.Errorf("join pipeline: %w", err)
+	}
+
+	raw, err := sc.Invoke(ctx, "SendInvitation", responderBotId)
+	if err != nil {
+		return nil, fmt.Errorf("send invitation: %w", err)
+	}
+	var resp PipelineSessionInvitationResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse invitation response: %w", err)
+	}
+	return &resp, nil
+}
+
+// PipelineAcceptSession accepts an incoming session invitation via TowerHub SignalR.
+func (c *Client) PipelineAcceptSession(ctx context.Context, apiKey, sessionToken string) (*PipelineSessionResponse, error) {
+	sc, err := c.ConnectToHub(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+
+	if err := sc.InvokeVoid(ctx, "JoinPipeline"); err != nil {
+		return nil, fmt.Errorf("join pipeline: %w", err)
+	}
+
+	raw, err := sc.Invoke(ctx, "AcceptSession", sessionToken)
+	if err != nil {
+		return nil, fmt.Errorf("accept session: %w", err)
+	}
+	var resp PipelineSessionResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse accept response: %w", err)
+	}
+	return &resp, nil
+}
+
+// PipelineRejectSession rejects a session invitation via TowerHub SignalR.
+func (c *Client) PipelineRejectSession(ctx context.Context, apiKey, sessionToken, reason string) error {
+	sc, err := c.ConnectToHub(ctx, apiKey)
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	if err := sc.InvokeVoid(ctx, "JoinPipeline"); err != nil {
+		return fmt.Errorf("join pipeline: %w", err)
+	}
+
+	_, err = sc.Invoke(ctx, "RejectSession", sessionToken, reason)
+	return err
+}
+
+// PipelineSendMessage sends a message in an active session via TowerHub SignalR.
+func (c *Client) PipelineSendMessage(ctx context.Context, apiKey, sessionToken, content string, encryption *PipelineEncryptionMeta) (*PipelineMessageResponse, error) {
+	sc, err := c.ConnectToHub(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+
+	if err := sc.InvokeVoid(ctx, "JoinPipeline"); err != nil {
+		return nil, fmt.Errorf("join pipeline: %w", err)
+	}
+
+	raw, err := sc.Invoke(ctx, "SendMessage", sessionToken, content, encryption)
+	if err != nil {
+		return nil, fmt.Errorf("send message: %w", err)
+	}
+	var resp PipelineMessageResponse
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse message response: %w", err)
+	}
+	return &resp, nil
+}
+
+// PipelineEndSession ends an active session via TowerHub SignalR.
+func (c *Client) PipelineEndSession(ctx context.Context, apiKey, sessionToken string) (*PipelineSessionMetadata, error) {
+	sc, err := c.ConnectToHub(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+
+	if err := sc.InvokeVoid(ctx, "JoinPipeline"); err != nil {
+		return nil, fmt.Errorf("join pipeline: %w", err)
+	}
+
+	raw, err := sc.Invoke(ctx, "EndSession", sessionToken)
+	if err != nil {
+		return nil, fmt.Errorf("end session: %w", err)
+	}
+	var resp PipelineSessionMetadata
+	if err := json.Unmarshal(raw, &resp); err != nil {
+		return nil, fmt.Errorf("parse end session response: %w", err)
+	}
+	return &resp, nil
+}
+
 // saveToLocalDB saves diary to local SQLite database
 func saveToLocalDB(date, summary string) error {
 	// Build local db path
