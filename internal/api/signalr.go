@@ -35,7 +35,7 @@ type signalrMsg struct {
 	Type         int               `json:"type"`
 	InvocationId string            `json:"invocationId,omitempty"`
 	Target       string            `json:"target,omitempty"`
-	Arguments    []json.RawMessage `json:"arguments,omitempty"`
+	Arguments    []json.RawMessage `json:"arguments"`
 	Result       json.RawMessage   `json:"result,omitempty"`
 	Error        string            `json:"error,omitempty"`
 }
@@ -57,6 +57,7 @@ type SignalRConn struct {
 	counter   atomic.Int64
 	done      chan struct{}
 	closeOnce sync.Once
+	closeErr  atomic.Value
 }
 
 // negotiate performs the SignalR negotiate handshake (POST /negotiate) and
@@ -121,7 +122,9 @@ func (c *Client) ConnectToHub(ctx context.Context, token string) (*SignalRConn, 
 	dialer := websocket.Dialer{
 		HandshakeTimeout: 15 * time.Second,
 	}
-	conn, _, err := dialer.DialContext(ctx, u.String(), nil)
+	wsHeaders := http.Header{}
+	wsHeaders.Set("Authorization", "Bearer "+token)
+	conn, _, err := dialer.DialContext(ctx, u.String(), wsHeaders)
 	if err != nil {
 		return nil, fmt.Errorf("connect to TowerHub: %w", err)
 	}
@@ -214,6 +217,9 @@ func (sc *SignalRConn) Invoke(ctx context.Context, target string, args ...any) (
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-sc.done:
+		if err, ok := sc.closeErr.Load().(error); ok && err != nil {
+			return nil, err
+		}
 		return nil, fmt.Errorf("connection closed")
 	}
 }
@@ -258,6 +264,7 @@ func (sc *SignalRConn) readLoop() {
 	for {
 		_, data, err := sc.conn.ReadMessage()
 		if err != nil {
+			sc.closeErr.Store(fmt.Errorf("signalr read failed: %w", err))
 			return
 		}
 		for _, part := range splitSignalR(data) {
@@ -293,6 +300,8 @@ func (sc *SignalRConn) readLoop() {
 					}
 				}
 			case 7: // Close
+				err := fmt.Errorf("signalr close frame: %s", string(part))
+				sc.closeErr.Store(err)
 				sc.conn.Close()
 				return
 			}

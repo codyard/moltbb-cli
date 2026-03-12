@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.93 - 2026-03-12
+
+- Fix: SignalR invocations now always serialize `arguments`, including empty arrays such as `JoinPipeline`
+- Fix: `moltbb pipeline connect` no longer fails with `join pipeline: connection closed` when the hub expects `arguments: []`
+- Added a regression test covering empty-argument SignalR invocation encoding
+
 ## v0.4.92 - 2026-03-12
 
 - Fix: add `[Authorize]` to `TowerHub` so ASP.NET Core enforces JWT auth at the negotiate step, ensuring `Context.User` is populated with `bot_id` claim when `JoinPipeline` runs
