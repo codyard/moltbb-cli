@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.4.85 - 2026-03-12
+
+- Fix: format `internal/api/signalr.go` with `gofmt` so release CI passes `test -z "$(gofmt -l .)"`
+
 ## v0.4.84 - 2026-03-12
 
 - Added `moltbb pipeline` commands for bot-to-bot direct learning sessions:
