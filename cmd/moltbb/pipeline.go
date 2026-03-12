@@ -25,6 +25,7 @@ func newPipelineCmd() *cobra.Command {
 		Short: "Bot-to-bot direct learning pipeline",
 		Long:  "Manage bot-to-bot real-time learning sessions.",
 	}
+	cmd.AddCommand(newPipelineAuthCmd())
 	cmd.AddCommand(newPipelineConnectCmd())
 	cmd.AddCommand(newPipelineInviteCmd())
 	cmd.AddCommand(newPipelineAcceptCmd())
@@ -45,15 +46,15 @@ func newPipelineCmd() *cobra.Command {
 	return cmd
 }
 
-// ── connect ──────────────────────────────────────────────────────────────────
+// ── auth ─────────────────────────────────────────────────────────────────────
 
-func newPipelineConnectCmd() *cobra.Command {
+func newPipelineAuthCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "connect",
-		Short: "Connect to pipeline and listen for messages",
-		Long: `Establish a persistent WebSocket connection to the pipeline system.
-Displays incoming invitations and messages in real time.
-Press Ctrl+C to disconnect.`,
+		Use:   "auth",
+		Short: "Exchange API key for a bot JWT (required for pipeline/room commands)",
+		Long: `Calls POST /api/v1/pipeline/token using your saved API key.
+The returned bot JWT is saved locally and used automatically by all
+pipeline and room commands. Run this once before using pipeline features.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -68,10 +69,53 @@ Press Ctrl+C to disconnect.`,
 				return err
 			}
 
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			resp, err := client.PipelineGetBotToken(ctx, apiKey)
+			if err != nil {
+				return fmt.Errorf("get bot token: %w", err)
+			}
+
+			if err := auth.SaveToken(resp.Token); err != nil {
+				return fmt.Errorf("save token: %w", err)
+			}
+
+			output.PrintSuccess(fmt.Sprintf("Authenticated as bot: %s (ID: %s)", resp.BotName, resp.BotID))
+			output.PrintInfo(fmt.Sprintf("Bot JWT saved. Expires: %s", resp.ExpiresAt.Local().Format("2006-01-02 15:04:05")))
+			output.PrintInfo("You can now use pipeline and room commands.")
+			return nil
+		},
+	}
+}
+
+// ── connect ──────────────────────────────────────────────────────────────────
+
+func newPipelineConnectCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "connect",
+		Short: "Connect to pipeline and listen for messages",
+		Long: `Establish a persistent WebSocket connection to the pipeline system.
+Displays incoming invitations and messages in real time.
+Press Ctrl+C to disconnect.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			token, err := auth.ResolveToken()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			sc, err := client.ConnectToHub(ctx, apiKey)
+			sc, err := client.ConnectToHub(ctx, token)
 			if err != nil {
 				return fmt.Errorf("connect to pipeline: %w", err)
 			}
@@ -198,7 +242,7 @@ func newPipelineInviteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -210,7 +254,7 @@ func newPipelineInviteCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			inv, err := client.PipelineSendInvitation(ctx, apiKey, responderBotId)
+			inv, err := client.PipelineSendInvitation(ctx, token, responderBotId)
 			if err != nil {
 				return err
 			}
@@ -258,7 +302,7 @@ func newPipelineAcceptCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -270,7 +314,7 @@ func newPipelineAcceptCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			sess, err := client.PipelineAcceptSession(ctx, apiKey, sessionToken)
+			sess, err := client.PipelineAcceptSession(ctx, token, sessionToken)
 			if err != nil {
 				return err
 			}
@@ -315,7 +359,7 @@ func newPipelineRejectCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -327,7 +371,7 @@ func newPipelineRejectCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			if err := client.PipelineRejectSession(ctx, apiKey, sessionToken, reason); err != nil {
+			if err := client.PipelineRejectSession(ctx, token, sessionToken, reason); err != nil {
 				return err
 			}
 
@@ -386,7 +430,7 @@ You can provide the message as an argument or read from a file with --file.`,
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -398,7 +442,7 @@ You can provide the message as an argument or read from a file with --file.`,
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			resp, err := client.PipelineSendMessage(ctx, apiKey, sessionToken, content, nil)
+			resp, err := client.PipelineSendMessage(ctx, token, sessionToken, content, nil)
 			if err != nil {
 				return err
 			}
@@ -444,7 +488,7 @@ func newPipelineEndCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -456,7 +500,7 @@ func newPipelineEndCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			meta, err := client.PipelineEndSession(ctx, apiKey, sessionToken)
+			meta, err := client.PipelineEndSession(ctx, token, sessionToken)
 			if err != nil {
 				return err
 			}
@@ -497,7 +541,7 @@ func newPipelineHistoryCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -509,7 +553,7 @@ func newPipelineHistoryCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
 			defer cancel()
 
-			result, err := client.PipelineGetSessionHistory(ctx, apiKey, page, pageSize)
+			result, err := client.PipelineGetSessionHistory(ctx, token, page, pageSize)
 			if err != nil {
 				return err
 			}
@@ -584,7 +628,7 @@ func newPipelineStatusCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -602,7 +646,7 @@ func newPipelineStatusCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
 			defer cancel()
 
-			st, err := client.PipelineGetConnectionStatus(ctx, apiKey, state.BotID)
+			st, err := client.PipelineGetConnectionStatus(ctx, token, state.BotID)
 			if err != nil {
 				return err
 			}
@@ -686,7 +730,7 @@ func newPipelineCreateRoomCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -698,7 +742,7 @@ func newPipelineCreateRoomCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			room, err := client.RoomCreate(ctx, apiKey, capacity, password, ttlMinutes)
+			room, err := client.RoomCreate(ctx, token, capacity, password, ttlMinutes)
 			if err != nil {
 				return err
 			}
@@ -746,7 +790,7 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -758,7 +802,7 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			result, err := client.RoomJoin(ctx, apiKey, roomCode, password)
+			result, err := client.RoomJoin(ctx, token, roomCode, password)
 			if err != nil {
 				return err
 			}
@@ -797,7 +841,7 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 			listenCtx, listenCancel := context.WithCancel(context.Background())
 			defer listenCancel()
 
-			sc, err := client.ConnectToHub(listenCtx, apiKey)
+			sc, err := client.ConnectToHub(listenCtx, token)
 			if err != nil {
 				return fmt.Errorf("connect to hub: %w", err)
 			}
@@ -865,7 +909,7 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 				fmt.Printf("\nLeaving room %s…\n", roomCode)
 				leaveCtx, leaveCancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer leaveCancel()
-				_ = client.RoomLeave(leaveCtx, apiKey, roomCode)
+				_ = client.RoomLeave(leaveCtx, token, roomCode)
 			case <-sc.Done():
 				output.PrintWarning("Connection closed by server")
 			case <-listenCtx.Done():
@@ -891,7 +935,7 @@ func newPipelineLeaveRoomCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -903,7 +947,7 @@ func newPipelineLeaveRoomCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			if err := client.RoomLeave(ctx, apiKey, roomCode); err != nil {
+			if err := client.RoomLeave(ctx, token, roomCode); err != nil {
 				return err
 			}
 
@@ -927,7 +971,7 @@ func newPipelineCloseRoomCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -939,7 +983,7 @@ func newPipelineCloseRoomCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			if err := client.RoomClose(ctx, apiKey, roomCode, reason); err != nil {
+			if err := client.RoomClose(ctx, token, roomCode, reason); err != nil {
 				return err
 			}
 
@@ -982,7 +1026,7 @@ func newPipelineSendRoomMessageCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -994,7 +1038,7 @@ func newPipelineSendRoomMessageCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 
-			if err := client.RoomSendMessage(ctx, apiKey, roomCode, content); err != nil {
+			if err := client.RoomSendMessage(ctx, token, roomCode, content); err != nil {
 				return err
 			}
 
@@ -1020,7 +1064,7 @@ func newPipelineRoomInfoCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -1032,7 +1076,7 @@ func newPipelineRoomInfoCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			info, err := client.RoomGetInfo(ctx, apiKey, roomCode)
+			info, err := client.RoomGetInfo(ctx, token, roomCode)
 			if err != nil {
 				return err
 			}
@@ -1075,7 +1119,7 @@ func newPipelineRoomParticipantsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -1087,7 +1131,7 @@ func newPipelineRoomParticipantsCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			participants, err := client.RoomGetParticipants(ctx, apiKey, roomCode)
+			participants, err := client.RoomGetParticipants(ctx, token, roomCode)
 			if err != nil {
 				return err
 			}
@@ -1133,7 +1177,7 @@ func newPipelineExtendRoomCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			apiKey, err := auth.ResolveAPIKey()
+			token, err := auth.ResolveToken()
 			if err != nil {
 				return fmt.Errorf("resolve API key: %w", err)
 			}
@@ -1145,7 +1189,7 @@ func newPipelineExtendRoomCmd() *cobra.Command {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
 
-			if err := client.RoomExtendTtl(ctx, apiKey, roomCode, minutes); err != nil {
+			if err := client.RoomExtendTtl(ctx, token, roomCode, minutes); err != nil {
 				return err
 			}
 

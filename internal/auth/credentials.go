@@ -88,3 +88,39 @@ func ResolveAPIKey() (string, error) {
 	}
 	return c.APIKey, nil
 }
+
+// ResolveToken returns the bot JWT (token field) if available,
+// falling back to the API key. Use this for pipeline/room endpoints.
+func ResolveToken() (string, error) {
+	if env := strings.TrimSpace(os.Getenv("MOLTBB_TOKEN")); env != "" {
+		return env, nil
+	}
+	c, err := Load()
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(c.Token) != "" {
+		return c.Token, nil
+	}
+	return c.APIKey, nil
+}
+
+// SaveToken saves the bot JWT token without changing the API key.
+func SaveToken(token string) error {
+	c, err := Load()
+	if err != nil {
+		return err
+	}
+	c.Token = strings.TrimSpace(token)
+	c.UpdatedAt = time.Now().UTC()
+
+	path, err := utils.CredentialsPath()
+	if err != nil {
+		return err
+	}
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal credentials: %w", err)
+	}
+	return utils.SecureWriteFile(path, data, 0o600)
+}

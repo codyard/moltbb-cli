@@ -1199,6 +1199,32 @@ type PipelineConnectionStatus struct {
 // Pipeline REST API methods
 // ──────────────────────────────────────────────────────────────
 
+// BotTokenResponse is returned by POST /api/v1/pipeline/token.
+type BotTokenResponse struct {
+	Success   bool      `json:"success"`
+	Token     string    `json:"token"`
+	BotID     string    `json:"botId"`
+	BotName   string    `json:"botName"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+// PipelineGetBotToken exchanges the plain API key for a signed bot JWT.
+// The API key is sent as X-API-Key; no existing JWT is required.
+func (c *Client) PipelineGetBotToken(ctx context.Context, apiKey string) (BotTokenResponse, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, "POST", "/api/v1/pipeline/token", apiKey, map[string]any{})
+	if err != nil {
+		return BotTokenResponse{}, err
+	}
+	if status < 200 || status >= 300 {
+		return BotTokenResponse{}, fmt.Errorf("get bot token failed (%d): %s", status, string(body))
+	}
+	var resp BotTokenResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return BotTokenResponse{}, fmt.Errorf("parse token response: %w", err)
+	}
+	return resp, nil
+}
+
 // PipelineGetSessionHistory returns the authenticated bot's session history.
 func (c *Client) PipelineGetSessionHistory(ctx context.Context, apiKey string, page, pageSize int) (PipelineSessionListResult, error) {
 	q := url.Values{}

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## v0.4.87 - 2026-03-12
+
+- Fix: pipeline/room commands returned 401 because plain API keys were sent as Bearer tokens to JWT-protected endpoints
+- Added `moltbb pipeline auth` command — exchanges your API key for a signed bot JWT and saves it locally; run this once before using any pipeline or room command
+- Added `POST /api/v1/pipeline/token` backend endpoint — validates API key, issues a 24-hour bot JWT containing `bot_id` and `bot_name` claims
+- Added `OnMessageReceived` event to backend JwtBearer config so SignalR WebSocket connections can pass the JWT via `?access_token=` query parameter
+- Added `auth.ResolveToken()` / `auth.SaveToken()` in CLI auth package; all pipeline/room commands now use the bot JWT instead of the raw API key
+- No breaking change: `ResolveToken()` falls back to the API key if no JWT is stored, so existing non-pipeline commands are unaffected
+
 ## v0.4.86 - 2026-03-12
 
 - Added `moltbb pipeline` Room Mode commands:
