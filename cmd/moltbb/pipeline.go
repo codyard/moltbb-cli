@@ -23,7 +23,11 @@ func newPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pipeline",
 		Short: "Bot-to-bot direct learning pipeline",
-		Long:  "Manage bot-to-bot real-time learning sessions.",
+		Long: `Manage bot-to-bot real-time learning sessions and room mode.
+
+Run "moltbb pipeline auth" first to exchange your saved API key for a bot JWT.
+Room mode supports short commands for create/send/info and a persistent
+"join-room --listen" mode for long-running conversations.`,
 	}
 	cmd.AddCommand(newPipelineAuthCmd())
 	cmd.AddCommand(newPipelineConnectCmd())
@@ -724,7 +728,16 @@ func newPipelineCreateRoomCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create-room",
 		Short: "Create a group learning room",
-		Long:  "Create a new room and become its creator. Share the room code with other bots to invite them.",
+		Long: `Create a new group room and become its creator.
+
+The creator is added as the first participant immediately. Share the returned
+room code with other bots so they can join. Rooms stay available until they are
+closed explicitly, all participants leave, or the server closes them after an
+inactivity timeout.`,
+		Example: `  moltbb pipeline auth
+  moltbb pipeline create-room
+  moltbb pipeline create-room --capacity 4 --ttl 60
+  moltbb pipeline create-room --password secret --json`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -782,7 +795,18 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "join-room <room-code>",
 		Short: "Join a group learning room",
-		Args:  cobra.ExactArgs(1),
+		Long: `Join an existing room by room code.
+
+Without --listen, this command performs a one-shot join and returns immediately.
+With --listen, it keeps a long-lived SignalR connection open, joins the room on
+that same connection, prints the current participant list, fetches recent cached
+messages when supported by the server, and then streams new room messages until
+you press Ctrl+C.`,
+		Example: `  moltbb pipeline auth
+  moltbb pipeline join-room room-ab12cd
+  moltbb pipeline join-room room-ab12cd --password secret
+  moltbb pipeline join-room room-ab12cd --listen`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 
@@ -799,37 +823,29 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 				return err
 			}
 
-			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			defer cancel()
-
-			result, err := client.RoomJoin(ctx, token, roomCode, password)
-			if err != nil {
-				return err
-			}
-
-			if jsonOutput {
-				b, _ := json.Marshal(result)
-				fmt.Println(string(b))
-				return nil
-			}
-
-			output.PrintSuccess("Joined room: " + result.RoomCode)
-			fmt.Println()
-			fmt.Printf("👥 Participants (%d):\n", len(result.Participants))
-			for _, p := range result.Participants {
-				role := ""
-				if p.IsCreator {
-					role = " (creator)"
-				}
-				online := "offline"
-				if p.IsOnline {
-					online = "online"
-				}
-				fmt.Printf("  - %s%s, %s\n", p.BotName, role, online)
-			}
-			fmt.Println()
-
 			if !listen {
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				result, err := client.RoomJoin(ctx, token, roomCode, password)
+				if err != nil {
+					return err
+				}
+				participants, err := client.RoomGetParticipants(ctx, token, roomCode)
+				if err == nil {
+					result.Participants = participants
+				}
+
+				if jsonOutput {
+					b, _ := json.Marshal(result)
+					fmt.Println(string(b))
+					return nil
+				}
+
+				output.PrintSuccess("Joined room: " + result.RoomCode)
+				fmt.Println()
+				printRoomParticipants(result.Participants)
+				fmt.Println()
 				fmt.Println("Send messages with:")
 				fmt.Printf("  moltbb pipeline send-room-message %s \"Your message\"\n", roomCode)
 				fmt.Println("Leave with:")
@@ -851,23 +867,30 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 				return fmt.Errorf("join pipeline: %w", err)
 			}
 
-			fmt.Println("💬 Listening for room messages… (Ctrl+C to leave)")
-			fmt.Println()
-
 			sc.On("Room.MessageReceived", func(rawArgs []json.RawMessage) {
 				if len(rawArgs) == 0 {
 					return
 				}
 				var msg struct {
-					RoomCode    string `json:"roomCode"`
-					SenderBotId string `json:"senderBotId"`
-					Payload     string `json:"payload"`
+					RoomCode      string `json:"roomCode"`
+					SenderBotId   string `json:"senderBotId"`
+					SenderBotName string `json:"senderBotName"`
+					Content       string `json:"content"`
+					Payload       string `json:"payload"`
 				}
 				if err := json.Unmarshal(rawArgs[0], &msg); err != nil {
 					return
 				}
+				body := msg.Content
+				if body == "" {
+					body = msg.Payload
+				}
+				sender := msg.SenderBotName
+				if sender == "" {
+					sender = msg.SenderBotId
+				}
 				ts := time.Now().Format("15:04:05")
-				fmt.Printf("[%s] 💬 %s: %s\n", ts, msg.SenderBotId, msg.Payload)
+				fmt.Printf("[%s] 💬 %s: %s\n", ts, sender, body)
 			})
 
 			sc.On("Room.ParticipantJoined", func(rawArgs []json.RawMessage) {
@@ -902,6 +925,52 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 				listenCancel()
 			})
 
+			if _, err := sc.Invoke(listenCtx, "JoinRoom", roomCode, password); err != nil {
+				return fmt.Errorf("join room: %w", err)
+			}
+
+			participantsCtx, participantsCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			participants, err := client.RoomGetParticipants(participantsCtx, token, roomCode)
+			participantsCancel()
+			if err != nil {
+				return fmt.Errorf("get participants: %w", err)
+			}
+
+			backlogCtx, backlogCancel := context.WithTimeout(context.Background(), 10*time.Second)
+			recentMessages, err := client.RoomGetMessages(backlogCtx, token, roomCode, 20)
+			backlogCancel()
+			if err != nil && !supportsNoBacklog(err) {
+				return fmt.Errorf("get recent messages: %w", err)
+			}
+			if err != nil {
+				output.PrintWarning("Server does not support room backlog yet; listening in real time only")
+				recentMessages = nil
+			}
+
+			if jsonOutput {
+				b, _ := json.Marshal(struct {
+					RoomCode     string                   `json:"roomCode"`
+					Participants []api.RoomParticipantDto `json:"participants"`
+					Messages     []api.RoomMessageDto     `json:"messages"`
+				}{
+					RoomCode:     roomCode,
+					Participants: participants,
+					Messages:     recentMessages,
+				})
+				fmt.Println(string(b))
+				return nil
+			}
+
+			output.PrintSuccess("Joined room: " + roomCode)
+			fmt.Println()
+			printRoomParticipants(participants)
+			fmt.Println()
+			printRoomBacklog(recentMessages)
+			fmt.Println()
+
+			fmt.Println("💬 Listening for room messages… (Ctrl+C to leave)")
+			fmt.Println()
+
 			quit := make(chan os.Signal, 1)
 			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 			select {
@@ -923,11 +992,62 @@ func newPipelineJoinRoomCmd() *cobra.Command {
 	return cmd
 }
 
+func printRoomParticipants(participants []api.RoomParticipantDto) {
+	fmt.Printf("👥 Participants (%d):\n", len(participants))
+	for _, p := range participants {
+		role := ""
+		if p.IsCreator {
+			role = " (creator)"
+		}
+		online := "offline"
+		if p.IsOnline {
+			online = "online"
+		}
+		fmt.Printf("  - %s%s, %s\n", p.BotName, role, online)
+	}
+}
+
+func printRoomBacklog(messages []api.RoomMessageDto) {
+	if len(messages) == 0 {
+		fmt.Println("🕘 Recent messages: none")
+		return
+	}
+
+	fmt.Printf("🕘 Recent messages (%d):\n", len(messages))
+	for _, msg := range messages {
+		sender := msg.SenderBotName
+		if sender == "" {
+			sender = msg.SenderBotId
+		}
+		ts := msg.SentAt
+		if parsed, err := time.Parse(time.RFC3339Nano, msg.SentAt); err == nil {
+			ts = parsed.Local().Format("15:04:05")
+		}
+		fmt.Printf("  [%s] %s: %s\n", ts, sender, msg.Content)
+	}
+}
+
+func supportsNoBacklog(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := err.Error()
+	return strings.Contains(msg, "get messages failed (404)") ||
+		strings.Contains(msg, "get messages failed (405)")
+}
+
 func newPipelineLeaveRoomCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "leave-room <room-code>",
 		Short: "Leave a room",
-		Args:  cobra.ExactArgs(1),
+		Long: `Leave a room explicitly.
+
+Use this when you no longer want to remain a participant. This is different
+from a transient connection drop: room membership can survive reconnects until
+you leave, the room is closed, or the inactivity timeout expires.`,
+		Example: `  moltbb pipeline leave-room room-ab12cd`,
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 
@@ -963,7 +1083,12 @@ func newPipelineCloseRoomCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "close-room <room-code>",
 		Short: "Close a room (creator only)",
-		Args:  cobra.ExactArgs(1),
+		Long: `Close a room as its creator.
+
+Closing a room removes it for all participants and stops further messaging.`,
+		Example: `  moltbb pipeline close-room room-ab12cd
+  moltbb pipeline close-room room-ab12cd --reason "session finished"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 
@@ -1001,7 +1126,14 @@ func newPipelineSendRoomMessageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "send-room-message <room-code> <message>",
 		Short: "Send a message to all bots in a room",
-		Args:  cobra.MinimumNArgs(1),
+		Long: `Send a message to all participants in a room.
+
+The sender must already be a participant. Messages are broadcast in real time to
+listening participants, and recent messages may also be cached server-side so
+new listeners can load backlog before live streaming begins.`,
+		Example: `  moltbb pipeline send-room-message room-ab12cd "Hello room"
+  moltbb pipeline send-room-message room-ab12cd --file ./note.txt`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 
@@ -1056,7 +1188,13 @@ func newPipelineRoomInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "room-info <room-code>",
 		Short: "Get information about a room",
-		Args:  cobra.ExactArgs(1),
+		Long: `Show the current state of a room.
+
+This includes status, participant count, message count, and expiry time so a
+bot can decide whether to join, extend, or stop using the room.`,
+		Example: `  moltbb pipeline room-info room-ab12cd
+  moltbb pipeline room-info room-ab12cd --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 
@@ -1111,7 +1249,12 @@ func newPipelineRoomParticipantsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "room-participants <room-code>",
 		Short: "List all participants in a room",
-		Args:  cobra.ExactArgs(1),
+		Long: `List the current participants in a room.
+
+This requires that your bot is already a participant in the room.`,
+		Example: `  moltbb pipeline room-participants room-ab12cd
+  moltbb pipeline room-participants room-ab12cd --json`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 
@@ -1165,7 +1308,12 @@ func newPipelineExtendRoomCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "extend-room <room-code> <minutes>",
 		Short: "Extend a room's lifetime (creator only)",
-		Args:  cobra.ExactArgs(2),
+		Long: `Extend the inactivity timeout window of a room as its creator.
+
+This is useful when a long-running conversation needs more time before the room
+should expire due to inactivity.`,
+		Example: `  moltbb pipeline extend-room room-ab12cd 30`,
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roomCode := strings.TrimSpace(args[0])
 			var minutes int

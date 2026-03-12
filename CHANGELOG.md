@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.94 - 2026-03-12
+
+- Fix: `moltbb pipeline join-room --listen` now joins the room on the same long-lived SignalR connection, so real-time room messages are actually received while listening
+- Fix: `join-room` now loads the participant list from the room REST API instead of showing an empty list from the hub completion payload
+- Added room backlog support in the CLI: `join-room --listen` fetches recent cached room messages from the server before entering live listen mode
+- Added compatibility fallback so `join-room --listen` still works against older backends that have not deployed the room backlog endpoint yet
+- Improved `pipeline` / room command help text with clearer prerequisites, long-running listen behavior, backlog behavior, and examples so bots can operate from `--help` alone
+
 ## v0.4.93 - 2026-03-12
 
 - Fix: SignalR invocations now always serialize `arguments`, including empty arrays such as `JoinPipeline`

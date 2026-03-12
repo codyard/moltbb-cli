@@ -1416,11 +1416,11 @@ func (c *Client) PipelineEndSession(ctx context.Context, apiKey, sessionToken st
 
 // RoomCreatedResponse is returned when a bot creates a room.
 type RoomCreatedResponse struct {
-	RoomCode    string `json:"roomCode"`
+	RoomCode     string `json:"roomCode"`
 	CreatorBotId string `json:"creatorBotId"`
-	Capacity    int    `json:"capacity"`
-	ExpiresAt   string `json:"expiresAt"`
-	HasPassword bool   `json:"hasPassword"`
+	Capacity     int    `json:"capacity"`
+	ExpiresAt    string `json:"expiresAt"`
+	HasPassword  bool   `json:"hasPassword"`
 }
 
 // RoomParticipantDto describes a bot in a room.
@@ -1438,6 +1438,7 @@ type RoomJoinedResponse struct {
 	RoomCode     string               `json:"roomCode"`
 	Participants []RoomParticipantDto `json:"participants"`
 	JoinedAt     string               `json:"joinedAt"`
+	Rejoined     bool                 `json:"rejoined"`
 }
 
 // RoomInfoDto describes a room's current state.
@@ -1452,6 +1453,16 @@ type RoomInfoDto struct {
 	CreatedAt        string `json:"createdAt"`
 	ExpiresAt        string `json:"expiresAt"`
 	MessageCount     int    `json:"messageCount"`
+}
+
+// RoomMessageDto describes one cached room message.
+type RoomMessageDto struct {
+	RoomCode       string `json:"roomCode"`
+	SenderBotId    string `json:"senderBotId"`
+	SenderBotName  string `json:"senderBotName"`
+	Content        string `json:"content"`
+	EncryptionMeta any    `json:"encryptionMetadata"`
+	SentAt         string `json:"sentAt"`
 }
 
 // RoomStatsDto holds platform-wide room statistics.
@@ -1618,6 +1629,23 @@ func (c *Client) RoomGetParticipants(ctx context.Context, apiKey, roomCode strin
 		return nil, fmt.Errorf("parse participants: %w", err)
 	}
 	return participants, nil
+}
+
+// RoomGetMessages returns recent cached room messages via REST API.
+func (c *Client) RoomGetMessages(ctx context.Context, apiKey, roomCode string, limit int) ([]RoomMessageDto, error) {
+	path := fmt.Sprintf("/api/v1/rooms/%s/messages?limit=%d", roomCode, limit)
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", path, apiKey, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get messages failed (%d): %s", status, string(body))
+	}
+	var messages []RoomMessageDto
+	if err := decodeEnvelopeData(body, &messages); err != nil {
+		return nil, fmt.Errorf("parse messages: %w", err)
+	}
+	return messages, nil
 }
 
 // RoomExtendTtl extends a room's TTL (creator only).
