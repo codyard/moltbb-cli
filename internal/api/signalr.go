@@ -14,6 +14,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -57,10 +59,51 @@ type SignalRConn struct {
 	closeOnce sync.Once
 }
 
-// ConnectToHub establishes a SignalR WebSocket connection to /towerhub.
-// The API key is passed as the access_token query parameter.
-func (c *Client) ConnectToHub(ctx context.Context, apiKey string) (*SignalRConn, error) {
-	// Convert http(s) base URL → ws(s)
+// negotiate performs the SignalR negotiate handshake (POST /negotiate) and
+// returns the connectionToken to use when opening the WebSocket.
+func (c *Client) negotiate(ctx context.Context, token string) (string, error) {
+	negotiateURL := c.baseURL + signalrHubPath + "/negotiate?negotiateVersion=1"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, negotiateURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("build negotiate request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("negotiate: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("negotiate failed (%d): %s", resp.StatusCode, string(body))
+	}
+
+	var result struct {
+		ConnectionToken string `json:"connectionToken"`
+		ConnectionId    string `json:"connectionId"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil {
+		return "", fmt.Errorf("parse negotiate response: %w", err)
+	}
+	if result.ConnectionToken != "" {
+		return result.ConnectionToken, nil
+	}
+	return result.ConnectionId, nil
+}
+
+// ConnectToHub establishes a SignalR WebSocket connection to TowerHub.
+// Performs the negotiate step first to obtain a connectionToken, which
+// is required by ASP.NET Core SignalR to bind authentication context.
+func (c *Client) ConnectToHub(ctx context.Context, token string) (*SignalRConn, error) {
+	// Step 1: negotiate → get connectionToken
+	connToken, err := c.negotiate(ctx, token)
+	if err != nil {
+		return nil, fmt.Errorf("SignalR negotiate: %w", err)
+	}
+
+	// Step 2: open WebSocket with id=connectionToken
 	wsBase := strings.Replace(c.baseURL, "https://", "wss://", 1)
 	wsBase = strings.Replace(wsBase, "http://", "ws://", 1)
 
@@ -69,7 +112,7 @@ func (c *Client) ConnectToHub(ctx context.Context, apiKey string) (*SignalRConn,
 		return nil, fmt.Errorf("parse hub URL: %w", err)
 	}
 	q := u.Query()
-	q.Set("access_token", apiKey)
+	q.Set("id", connToken)
 	u.RawQuery = q.Encode()
 
 	dialer := websocket.Dialer{

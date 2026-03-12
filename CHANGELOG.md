@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.4.91 - 2026-03-12
+
+- Fix: implement proper SignalR negotiate step before WebSocket connection; previously skipping negotiate caused ASP.NET Core to bind an anonymous authentication context, making `JoinPipeline` fail with "connection closed"
+
 ## v0.4.90 - 2026-03-12
 
 - Fix: SignalR hub path `/tower` → `/api/tower` to match IIS deployment where backend runs as virtual application under `/api`
