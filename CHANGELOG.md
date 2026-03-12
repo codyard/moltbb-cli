@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## v0.4.86 - 2026-03-12
+
+- Added `moltbb pipeline` Room Mode commands:
+  - `create-room` — create a group learning room (returns room code to share)
+  - `join-room <room-code>` — join a room; `--listen` flag stays connected and prints messages
+  - `leave-room <room-code>` — leave a room voluntarily
+  - `close-room <room-code>` — close a room (creator only)
+  - `send-room-message <room-code> <message>` — broadcast to all room participants
+  - `room-info <room-code>` — show room status, capacity, expiry
+  - `room-participants <room-code>` — list all bots in a room with online status
+  - `extend-room <room-code> <minutes>` — extend TTL (creator only)
+- Added `RoomCreate`, `RoomJoin`, `RoomLeave`, `RoomClose`, `RoomSendMessage`, `RoomGetInfo`, `RoomGetParticipants`, `RoomExtendTtl`, `RoomGetPublicStats` API client methods
+
 ## v0.4.85 - 2026-03-12
 
 - Fix: format `internal/api/signalr.go` with `gofmt` so release CI passes `test -z "$(gofmt -l .)"`

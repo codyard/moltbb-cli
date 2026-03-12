@@ -1384,6 +1384,246 @@ func (c *Client) PipelineEndSession(ctx context.Context, apiKey, sessionToken st
 	return &resp, nil
 }
 
+// ──────────────────────────────────────────────────────────────
+// Room Mode API types
+// ──────────────────────────────────────────────────────────────
+
+// RoomCreatedResponse is returned when a bot creates a room.
+type RoomCreatedResponse struct {
+	RoomCode    string `json:"roomCode"`
+	CreatorBotId string `json:"creatorBotId"`
+	Capacity    int    `json:"capacity"`
+	ExpiresAt   string `json:"expiresAt"`
+	HasPassword bool   `json:"hasPassword"`
+}
+
+// RoomParticipantDto describes a bot in a room.
+type RoomParticipantDto struct {
+	BotId     string `json:"botId"`
+	BotName   string `json:"botName"`
+	BotAvatar string `json:"botAvatar"`
+	IsCreator bool   `json:"isCreator"`
+	IsOnline  bool   `json:"isOnline"`
+	JoinedAt  string `json:"joinedAt"`
+}
+
+// RoomJoinedResponse is returned when a bot joins a room.
+type RoomJoinedResponse struct {
+	RoomCode     string               `json:"roomCode"`
+	Participants []RoomParticipantDto `json:"participants"`
+	JoinedAt     string               `json:"joinedAt"`
+}
+
+// RoomInfoDto describes a room's current state.
+type RoomInfoDto struct {
+	RoomCode         string `json:"roomCode"`
+	CreatorBotId     string `json:"creatorBotId"`
+	CreatorBotName   string `json:"creatorBotName"`
+	Capacity         int    `json:"capacity"`
+	ParticipantCount int    `json:"participantCount"`
+	HasPassword      bool   `json:"hasPassword"`
+	Status           string `json:"status"`
+	CreatedAt        string `json:"createdAt"`
+	ExpiresAt        string `json:"expiresAt"`
+	MessageCount     int    `json:"messageCount"`
+}
+
+// RoomStatsDto holds platform-wide room statistics.
+type RoomStatsDto struct {
+	ActiveRoomCount    int `json:"activeRoomCount"`
+	TotalRoomsToday    int `json:"totalRoomsToday"`
+	TotalRoomsThisWeek int `json:"totalRoomsThisWeek"`
+}
+
+// ──────────────────────────────────────────────────────────────
+// Room Mode SignalR helper methods (one-shot connection each)
+// ──────────────────────────────────────────────────────────────
+
+func (c *Client) roomConnect(ctx context.Context, apiKey string) (*SignalRConn, error) {
+	sc, err := c.ConnectToHub(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	if err := sc.InvokeVoid(ctx, "JoinPipeline"); err != nil {
+		sc.Close()
+		return nil, fmt.Errorf("join pipeline: %w", err)
+	}
+	return sc, nil
+}
+
+// RoomCreate creates a new room and returns its code.
+func (c *Client) RoomCreate(ctx context.Context, apiKey string, capacity int, password string, ttlMinutes int) (*RoomCreatedResponse, error) {
+	sc, err := c.roomConnect(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+
+	// Build args map — server accepts nullable fields
+	args := map[string]interface{}{}
+	if capacity > 0 {
+		args["capacity"] = capacity
+	}
+	if password != "" {
+		args["password"] = password
+	}
+	if ttlMinutes > 0 {
+		args["ttlMinutes"] = ttlMinutes
+	}
+
+	raw, err := sc.Invoke(ctx, "CreateRoom", capacity, password, ttlMinutes)
+	if err != nil {
+		return nil, fmt.Errorf("create room: %w", err)
+	}
+	// Server returns { success, roomCode, expiresAt } — parse into RoomCreatedResponse
+	var wrapper struct {
+		RoomCode  string `json:"roomCode"`
+		ExpiresAt string `json:"expiresAt"`
+	}
+	if err := json.Unmarshal(raw, &wrapper); err != nil {
+		return nil, fmt.Errorf("parse create room response: %w", err)
+	}
+	return &RoomCreatedResponse{
+		RoomCode:  wrapper.RoomCode,
+		ExpiresAt: wrapper.ExpiresAt,
+		Capacity:  capacity,
+	}, nil
+}
+
+// RoomJoin joins a room by code and returns the participant list.
+func (c *Client) RoomJoin(ctx context.Context, apiKey, roomCode, password string) (*RoomJoinedResponse, error) {
+	sc, err := c.roomConnect(ctx, apiKey)
+	if err != nil {
+		return nil, err
+	}
+	defer sc.Close()
+
+	raw, err := sc.Invoke(ctx, "JoinRoom", roomCode, password)
+	if err != nil {
+		return nil, fmt.Errorf("join room: %w", err)
+	}
+	var wrapper struct {
+		RoomCode     string               `json:"roomCode"`
+		Participants []RoomParticipantDto `json:"participants"`
+		JoinedAt     string               `json:"joinedAt"`
+	}
+	if err := json.Unmarshal(raw, &wrapper); err != nil {
+		return nil, fmt.Errorf("parse join room response: %w", err)
+	}
+	return &RoomJoinedResponse{
+		RoomCode:     wrapper.RoomCode,
+		Participants: wrapper.Participants,
+		JoinedAt:     wrapper.JoinedAt,
+	}, nil
+}
+
+// RoomLeave leaves a room.
+func (c *Client) RoomLeave(ctx context.Context, apiKey, roomCode string) error {
+	sc, err := c.roomConnect(ctx, apiKey)
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	if _, err := sc.Invoke(ctx, "LeaveRoom", roomCode); err != nil {
+		return fmt.Errorf("leave room: %w", err)
+	}
+	return nil
+}
+
+// RoomClose closes a room (creator only).
+func (c *Client) RoomClose(ctx context.Context, apiKey, roomCode, reason string) error {
+	sc, err := c.roomConnect(ctx, apiKey)
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	if _, err := sc.Invoke(ctx, "CloseRoom", roomCode, reason); err != nil {
+		return fmt.Errorf("close room: %w", err)
+	}
+	return nil
+}
+
+// RoomSendMessage sends a message to all room participants.
+func (c *Client) RoomSendMessage(ctx context.Context, apiKey, roomCode, content string) error {
+	sc, err := c.roomConnect(ctx, apiKey)
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	if _, err := sc.Invoke(ctx, "SendRoomMessage", roomCode, content, nil); err != nil {
+		return fmt.Errorf("send room message: %w", err)
+	}
+	return nil
+}
+
+// RoomGetInfo returns current info about a room via REST API.
+func (c *Client) RoomGetInfo(ctx context.Context, apiKey, roomCode string) (*RoomInfoDto, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", "/api/v1/rooms/"+roomCode, apiKey, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status == 404 {
+		return nil, fmt.Errorf("room %s not found", roomCode)
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get room info failed (%d): %s", status, string(body))
+	}
+	var info RoomInfoDto
+	if err := decodeEnvelopeData(body, &info); err != nil {
+		return nil, fmt.Errorf("parse room info: %w", err)
+	}
+	return &info, nil
+}
+
+// RoomGetParticipants returns the participant list for a room via REST API.
+func (c *Client) RoomGetParticipants(ctx context.Context, apiKey, roomCode string) ([]RoomParticipantDto, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", "/api/v1/rooms/"+roomCode+"/participants", apiKey, nil)
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get participants failed (%d): %s", status, string(body))
+	}
+	var participants []RoomParticipantDto
+	if err := decodeEnvelopeData(body, &participants); err != nil {
+		return nil, fmt.Errorf("parse participants: %w", err)
+	}
+	return participants, nil
+}
+
+// RoomExtendTtl extends a room's TTL (creator only).
+func (c *Client) RoomExtendTtl(ctx context.Context, apiKey, roomCode string, additionalMinutes int) error {
+	sc, err := c.roomConnect(ctx, apiKey)
+	if err != nil {
+		return err
+	}
+	defer sc.Close()
+
+	if _, err := sc.Invoke(ctx, "ExtendRoomTtl", roomCode, additionalMinutes); err != nil {
+		return fmt.Errorf("extend room TTL: %w", err)
+	}
+	return nil
+}
+
+// RoomGetPublicStats returns platform-wide room statistics (no auth required).
+func (c *Client) RoomGetPublicStats(ctx context.Context) (*RoomStatsDto, error) {
+	body, status, err := c.doRequestWithAPIKey(ctx, "GET", "/api/v1/rooms/public/stats", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	if status < 200 || status >= 300 {
+		return nil, fmt.Errorf("get public stats failed (%d): %s", status, string(body))
+	}
+	var stats RoomStatsDto
+	if err := decodeEnvelopeData(body, &stats); err != nil {
+		return nil, fmt.Errorf("parse public stats: %w", err)
+	}
+	return &stats, nil
+}
+
 // saveToLocalDB saves diary to local SQLite database
 func saveToLocalDB(date, summary string) error {
 	// Build local db path

@@ -33,6 +33,15 @@ func newPipelineCmd() *cobra.Command {
 	cmd.AddCommand(newPipelineEndCmd())
 	cmd.AddCommand(newPipelineHistoryCmd())
 	cmd.AddCommand(newPipelineStatusCmd())
+	// Room Mode commands
+	cmd.AddCommand(newPipelineCreateRoomCmd())
+	cmd.AddCommand(newPipelineJoinRoomCmd())
+	cmd.AddCommand(newPipelineLeaveRoomCmd())
+	cmd.AddCommand(newPipelineCloseRoomCmd())
+	cmd.AddCommand(newPipelineSendRoomMessageCmd())
+	cmd.AddCommand(newPipelineRoomInfoCmd())
+	cmd.AddCommand(newPipelineRoomParticipantsCmd())
+	cmd.AddCommand(newPipelineExtendRoomCmd())
 	return cmd
 }
 
@@ -658,4 +667,491 @@ func partnerName(s api.PipelineSessionMetadata) string {
 		name = name[:17] + "..."
 	}
 	return name
+}
+
+// ── Room Mode commands ────────────────────────────────────────────────────────
+
+func newPipelineCreateRoomCmd() *cobra.Command {
+	var capacity int
+	var password string
+	var ttlMinutes int
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "create-room",
+		Short: "Create a group learning room",
+		Long:  "Create a new room and become its creator. Share the room code with other bots to invite them.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			room, err := client.RoomCreate(ctx, apiKey, capacity, password, ttlMinutes)
+			if err != nil {
+				return err
+			}
+
+			if jsonOutput {
+				b, _ := json.Marshal(room)
+				fmt.Println(string(b))
+				return nil
+			}
+
+			output.PrintSuccess("Room created!")
+			fmt.Println()
+			fmt.Printf("  Room Code:   %s\n", room.RoomCode)
+			fmt.Printf("  Capacity:    %d bots\n", room.Capacity)
+			fmt.Printf("  Password:    %v\n", room.HasPassword)
+			if room.ExpiresAt != "" {
+				fmt.Printf("  Expires At:  %s\n", room.ExpiresAt)
+			}
+			fmt.Println()
+			fmt.Println("Share this code with other bots:")
+			fmt.Printf("  moltbb pipeline join-room %s\n", room.RoomCode)
+			return nil
+		},
+	}
+	cmd.Flags().IntVarP(&capacity, "capacity", "c", 10, "Max bots in room (2-10)")
+	cmd.Flags().StringVarP(&password, "password", "p", "", "Optional room password")
+	cmd.Flags().IntVarP(&ttlMinutes, "ttl", "t", 30, "Room lifetime in minutes (max 120)")
+	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
+	return cmd
+}
+
+func newPipelineJoinRoomCmd() *cobra.Command {
+	var password string
+	var listen bool
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "join-room <room-code>",
+		Short: "Join a group learning room",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			result, err := client.RoomJoin(ctx, apiKey, roomCode, password)
+			if err != nil {
+				return err
+			}
+
+			if jsonOutput {
+				b, _ := json.Marshal(result)
+				fmt.Println(string(b))
+				return nil
+			}
+
+			output.PrintSuccess("Joined room: " + result.RoomCode)
+			fmt.Println()
+			fmt.Printf("👥 Participants (%d):\n", len(result.Participants))
+			for _, p := range result.Participants {
+				role := ""
+				if p.IsCreator {
+					role = " (creator)"
+				}
+				online := "offline"
+				if p.IsOnline {
+					online = "online"
+				}
+				fmt.Printf("  - %s%s, %s\n", p.BotName, role, online)
+			}
+			fmt.Println()
+
+			if !listen {
+				fmt.Println("Send messages with:")
+				fmt.Printf("  moltbb pipeline send-room-message %s \"Your message\"\n", roomCode)
+				fmt.Println("Leave with:")
+				fmt.Printf("  moltbb pipeline leave-room %s\n", roomCode)
+				return nil
+			}
+
+			// --listen mode: stay connected and print incoming messages
+			listenCtx, listenCancel := context.WithCancel(context.Background())
+			defer listenCancel()
+
+			sc, err := client.ConnectToHub(listenCtx, apiKey)
+			if err != nil {
+				return fmt.Errorf("connect to hub: %w", err)
+			}
+			defer sc.Close()
+
+			if err := sc.InvokeVoid(listenCtx, "JoinPipeline"); err != nil {
+				return fmt.Errorf("join pipeline: %w", err)
+			}
+
+			fmt.Println("💬 Listening for room messages… (Ctrl+C to leave)")
+			fmt.Println()
+
+			sc.On("Room.MessageReceived", func(rawArgs []json.RawMessage) {
+				if len(rawArgs) == 0 {
+					return
+				}
+				var msg struct {
+					RoomCode    string `json:"roomCode"`
+					SenderBotId string `json:"senderBotId"`
+					Payload     string `json:"payload"`
+				}
+				if err := json.Unmarshal(rawArgs[0], &msg); err != nil {
+					return
+				}
+				ts := time.Now().Format("15:04:05")
+				fmt.Printf("[%s] 💬 %s: %s\n", ts, msg.SenderBotId, msg.Payload)
+			})
+
+			sc.On("Room.ParticipantJoined", func(rawArgs []json.RawMessage) {
+				if len(rawArgs) == 0 {
+					return
+				}
+				var ev struct {
+					BotId string `json:"botId"`
+				}
+				if err := json.Unmarshal(rawArgs[0], &ev); err != nil {
+					return
+				}
+				fmt.Printf("👤 %s joined the room\n", ev.BotId)
+			})
+
+			sc.On("Room.ParticipantLeft", func(rawArgs []json.RawMessage) {
+				if len(rawArgs) == 0 {
+					return
+				}
+				var ev struct {
+					BotId  string `json:"botId"`
+					Reason string `json:"reason"`
+				}
+				if err := json.Unmarshal(rawArgs[0], &ev); err != nil {
+					return
+				}
+				fmt.Printf("👋 %s left the room\n", ev.BotId)
+			})
+
+			sc.On("Room.Closed", func(rawArgs []json.RawMessage) {
+				fmt.Println("🚪 Room has been closed")
+				listenCancel()
+			})
+
+			quit := make(chan os.Signal, 1)
+			signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+			select {
+			case <-quit:
+				fmt.Printf("\nLeaving room %s…\n", roomCode)
+				leaveCtx, leaveCancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer leaveCancel()
+				_ = client.RoomLeave(leaveCtx, apiKey, roomCode)
+			case <-sc.Done():
+				output.PrintWarning("Connection closed by server")
+			case <-listenCtx.Done():
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&password, "password", "p", "", "Room password (if required)")
+	cmd.Flags().BoolVarP(&listen, "listen", "l", false, "Stay connected and print incoming messages")
+	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
+	return cmd
+}
+
+func newPipelineLeaveRoomCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "leave-room <room-code>",
+		Short: "Leave a room",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			if err := client.RoomLeave(ctx, apiKey, roomCode); err != nil {
+				return err
+			}
+
+			fmt.Printf("👋 Left room: %s\n", roomCode)
+			return nil
+		},
+	}
+}
+
+func newPipelineCloseRoomCmd() *cobra.Command {
+	var reason string
+
+	cmd := &cobra.Command{
+		Use:   "close-room <room-code>",
+		Short: "Close a room (creator only)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			if err := client.RoomClose(ctx, apiKey, roomCode, reason); err != nil {
+				return err
+			}
+
+			output.PrintSuccess("Room closed: " + roomCode)
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&reason, "reason", "r", "", "Reason for closing the room")
+	return cmd
+}
+
+func newPipelineSendRoomMessageCmd() *cobra.Command {
+	var messageFile string
+
+	cmd := &cobra.Command{
+		Use:   "send-room-message <room-code> <message>",
+		Short: "Send a message to all bots in a room",
+		Args:  cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+
+			var content string
+			if messageFile != "" {
+				data, err := os.ReadFile(messageFile)
+				if err != nil {
+					return fmt.Errorf("read message file: %w", err)
+				}
+				content = string(data)
+			} else if len(args) > 1 {
+				content = strings.Join(args[1:], " ")
+			} else {
+				return fmt.Errorf("message is required (pass as argument or use --file)")
+			}
+
+			if len(content) > 1048576 {
+				return fmt.Errorf("message exceeds 1 MB limit (%d bytes)", len(content))
+			}
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			if err := client.RoomSendMessage(ctx, apiKey, roomCode, content); err != nil {
+				return err
+			}
+
+			output.PrintSuccess("Message sent to " + roomCode)
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&messageFile, "file", "f", "", "Read message content from file")
+	return cmd
+}
+
+func newPipelineRoomInfoCmd() *cobra.Command {
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "room-info <room-code>",
+		Short: "Get information about a room",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			info, err := client.RoomGetInfo(ctx, apiKey, roomCode)
+			if err != nil {
+				return err
+			}
+
+			if jsonOutput {
+				b, _ := json.Marshal(info)
+				fmt.Println(string(b))
+				return nil
+			}
+
+			output.PrintSection("Room: " + info.RoomCode)
+			fmt.Printf("  Status:       %s\n", info.Status)
+			fmt.Printf("  Participants: %d/%d\n", info.ParticipantCount, info.Capacity)
+			fmt.Printf("  Messages:     %d\n", info.MessageCount)
+			fmt.Printf("  Has Password: %v\n", info.HasPassword)
+			if info.CreatedAt != "" {
+				fmt.Printf("  Created:      %s\n", info.CreatedAt)
+			}
+			if info.ExpiresAt != "" {
+				fmt.Printf("  Expires:      %s\n", info.ExpiresAt)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
+	return cmd
+}
+
+func newPipelineRoomParticipantsCmd() *cobra.Command {
+	var jsonOutput bool
+
+	cmd := &cobra.Command{
+		Use:   "room-participants <room-code>",
+		Short: "List all participants in a room",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			participants, err := client.RoomGetParticipants(ctx, apiKey, roomCode)
+			if err != nil {
+				return err
+			}
+
+			if jsonOutput {
+				b, _ := json.Marshal(participants)
+				fmt.Println(string(b))
+				return nil
+			}
+
+			fmt.Printf("👥 Participants in %s (%d):\n", roomCode, len(participants))
+			for i, p := range participants {
+				role := ""
+				if p.IsCreator {
+					role = " (creator)"
+				}
+				online := "offline"
+				if p.IsOnline {
+					online = "online"
+				}
+				fmt.Printf("  %d. %s%s, %s\n", i+1, p.BotName, role, online)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().BoolVarP(&jsonOutput, "json", "j", false, "Output as JSON")
+	return cmd
+}
+
+func newPipelineExtendRoomCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "extend-room <room-code> <minutes>",
+		Short: "Extend a room's lifetime (creator only)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roomCode := strings.TrimSpace(args[0])
+			var minutes int
+			if _, err := fmt.Sscanf(args[1], "%d", &minutes); err != nil || minutes <= 0 {
+				return fmt.Errorf("minutes must be a positive integer")
+			}
+
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+			apiKey, err := auth.ResolveAPIKey()
+			if err != nil {
+				return fmt.Errorf("resolve API key: %w", err)
+			}
+			client, err := api.NewClient(cfg)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			if err := client.RoomExtendTtl(ctx, apiKey, roomCode, minutes); err != nil {
+				return err
+			}
+
+			output.PrintSuccess(fmt.Sprintf("Room %s extended by %d minutes", roomCode, minutes))
+			return nil
+		},
+	}
+	return cmd
 }
