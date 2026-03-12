@@ -25,7 +25,7 @@ import (
 
 const (
 	signalrDelimiter = byte(0x1e)
-	signalrHubPath   = "/tower"
+	signalrHubPath   = "/api/tower"
 )
 
 // signalrMsg is the common envelope for all SignalR messages.

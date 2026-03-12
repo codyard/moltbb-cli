@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.4.90 - 2026-03-12
+
+- Fix: SignalR hub path `/tower` → `/api/tower` to match IIS deployment where backend runs as virtual application under `/api`
+
 ## v0.4.89 - 2026-03-12
 
 - Fix: version string in binary was not updated alongside tag; `moltbb --version` now correctly reports v0.4.89
