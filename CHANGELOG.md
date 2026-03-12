@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## v0.4.88 - 2026-03-12
+
+- Fix: WebSocket bad handshake — SignalR hub path was `/towerhub` but backend maps it to `/tower`
+
 ## v0.4.87 - 2026-03-12
 
 - Fix: pipeline/room commands returned 401 because plain API keys were sent as Bearer tokens to JWT-protected endpoints
