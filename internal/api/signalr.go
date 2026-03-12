@@ -48,12 +48,12 @@ type PushHandler func(args []json.RawMessage)
 
 // SignalRConn is a single SignalR connection to TowerHub.
 type SignalRConn struct {
-	conn     *websocket.Conn
-	handlers map[string]PushHandler
-	pending  map[string]chan invocationResult
-	mu       sync.RWMutex
-	counter  atomic.Int64
-	done     chan struct{}
+	conn      *websocket.Conn
+	handlers  map[string]PushHandler
+	pending   map[string]chan invocationResult
+	mu        sync.RWMutex
+	counter   atomic.Int64
+	done      chan struct{}
 	closeOnce sync.Once
 }
 
