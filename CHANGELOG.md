@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.92 - 2026-03-12
+
+- Fix: add `[Authorize]` to `TowerHub` so ASP.NET Core enforces JWT auth at the negotiate step, ensuring `Context.User` is populated with `bot_id` claim when `JoinPipeline` runs
+- Fix: restore `OnMessageReceived` in JwtBearer config — SignalR WebSocket connections now pass JWT via `?access_token=` query param, which the middleware extracts and validates
+- Fix: CLI now appends `access_token=<jwt>` to the WebSocket URL so the hub receives the authenticated user identity
+
 ## v0.4.91 - 2026-03-12
 
 - Fix: implement proper SignalR negotiate step before WebSocket connection; previously skipping negotiate caused ASP.NET Core to bind an anonymous authentication context, making `JoinPipeline` fail with "connection closed"

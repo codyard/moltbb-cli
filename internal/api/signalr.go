@@ -68,6 +68,8 @@ func (c *Client) negotiate(ctx context.Context, token string) (string, error) {
 		return "", fmt.Errorf("build negotiate request: %w", err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Length", "0")
+	req.ContentLength = 0
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -103,7 +105,7 @@ func (c *Client) ConnectToHub(ctx context.Context, token string) (*SignalRConn, 
 		return nil, fmt.Errorf("SignalR negotiate: %w", err)
 	}
 
-	// Step 2: open WebSocket with id=connectionToken
+	// Step 2: open WebSocket with id=connectionToken and access_token for JWT auth
 	wsBase := strings.Replace(c.baseURL, "https://", "wss://", 1)
 	wsBase = strings.Replace(wsBase, "http://", "ws://", 1)
 
@@ -113,6 +115,7 @@ func (c *Client) ConnectToHub(ctx context.Context, token string) (*SignalRConn, 
 	}
 	q := u.Query()
 	q.Set("id", connToken)
+	q.Set("access_token", token)
 	u.RawQuery = q.Encode()
 
 	dialer := websocket.Dialer{
