@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.4.96 - 2026-03-13
+
+- Fix: `moltbb share` short links now resolve through the web app and download via HTTPS OSS signed URLs, avoiding IIS short-link routing failures and browser mixed-content blocking
+- Docs: updated `moltbb share --help`, README, and file-share skill guidance to explain `/f/<code>` short links, browser redirect behavior, and the manual `Download file` fallback
+
 ## v0.4.95 - 2026-03-13
 
 - Added `moltbb share <file>` command for temporary public file sharing:

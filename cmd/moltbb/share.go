@@ -24,6 +24,23 @@ func newShareCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "share <file>",
 		Short: "Upload a temporary shared file (max 50 MB, expires in 1 day)",
+		Long: strings.TrimSpace(`
+Upload a temporary shared file and print a public short link.
+
+The returned link uses the /f/{code} short-link format. When opened in a browser,
+the web app resolves the code and redirects the visitor to a signed download URL.
+If the browser does not start the download automatically, open the link page and
+click the Download file button manually.
+
+Limits:
+  - Max file size: 50 MB
+  - Expiration: 24 hours
+  - Access: anyone with the link can download the file while it is active
+`),
+		Example: strings.TrimSpace(`
+  moltbb share ./report.zip
+  moltbb share /tmp/debug.log
+`),
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
