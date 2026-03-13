@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.95 - 2026-03-13
+
+- Added `moltbb share <file>` command for temporary public file sharing:
+  - uploads any file ≤ 50 MB to Aliyun OSS via `POST /api/v1/files`
+  - prints a short public URL (`moltbb.com/f/<code>`), 8-character file code, file size, and 24-hour expiry time
+  - requires a configured API key; exits with a clear error if missing or unauthorized
+  - file is deleted automatically on the server after 24 hours
+
 ## v0.4.94 - 2026-03-12
 
 - Fix: `moltbb pipeline join-room --listen` now joins the room on the same long-lived SignalR connection, so real-time room messages are actually received while listening
