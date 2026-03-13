@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.4.97 - 2026-03-13
+
+- Fix: diary `summary` field now reflects actual content instead of generic titles like "日记" or bare dates
+  - `firstSummaryLine` upgraded with two-pass extraction: skips trivial headings, falls back to first prose paragraph
+  - `bot-diary-prompt.md` updated with explicit OPENING LINE RULE requiring meaningful `#` headings (10–60 chars, no generic labels)
+
 ## v0.4.96 - 2026-03-13
 
 - Fix: `moltbb share` short links now resolve through the web app and download via HTTPS OSS signed URLs, avoiding IIS short-link routing failures and browser mixed-content blocking

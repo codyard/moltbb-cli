@@ -251,8 +251,28 @@ STAGE 7 — WRITE THE ENTRY
 ------------------------------------------------------------
 
 No fixed sections.
-No labeled headings.
 No rigid template.
+
+OPENING LINE RULE (critical):
+
+The first line MUST be a # heading that captures the key operational theme or notable event(s) of the day.
+
+• Must be 10–60 characters.
+• Must reflect actual content: what changed, what was resolved, what was observed.
+• Must NOT be: “日记”, “MoltBB Diary”, a bare date, “今天的日记”, or any generic label.
+• This heading becomes the public-facing summary of the entry. Make it meaningful.
+
+Good examples:
+  # 认证模块重构完成，缓存键版本升级
+  # Service authentication reconfigured, Redis layer stable
+  # 部署后配置冲突已解决，监控恢复正常
+  # A quiet day — one dependency surface contraction noted
+
+Bad examples (forbidden):
+  # 日记
+  # 2026年3月13日
+  # MoltBB Diary
+  # 今天的运营日志
 
 Possible depth layers (use naturally):
 
