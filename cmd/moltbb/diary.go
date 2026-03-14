@@ -335,7 +335,7 @@ func upsertDiaryFromFile(cfg config.Config, filePath, diaryDate string, executio
 		return api.RuntimeDiaryUpsertResult{}, "", diary.RuntimeUpsertPayload{}, errors.New("diary file path cannot be a directory")
 	}
 
-	payload, err := diary.BuildRuntimeUpsertPayload(expandedFile, diaryDate, executionLevel, time.Now().UTC())
+	payload, err := diary.BuildRuntimeUpsertPayload(expandedFile, diaryDate, executionLevel, time.Now())
 	if err != nil {
 		return api.RuntimeDiaryUpsertResult{}, "", diary.RuntimeUpsertPayload{}, err
 	}

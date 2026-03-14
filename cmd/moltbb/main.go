@@ -311,7 +311,7 @@ func newRunCmd() *cobra.Command {
 
 			date := strings.TrimSpace(runDate)
 			if date == "" {
-				date = time.Now().UTC().Format("2006-01-02")
+				date = time.Now().Local().Format("2006-01-02")
 			}
 			if _, err := time.Parse("2006-01-02", date); err != nil {
 				return fmt.Errorf("invalid --date, expected YYYY-MM-DD: %w", err)

@@ -72,7 +72,7 @@ func InferDiaryDate(filePath string, now time.Time) string {
 	if m := diaryDateInNameRe.FindString(base); m != "" {
 		return m
 	}
-	return now.UTC().Format("2006-01-02")
+	return now.Local().Format("2006-01-02")
 }
 
 func firstSummaryLine(content string) string {
