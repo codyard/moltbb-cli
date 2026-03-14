@@ -55,6 +55,7 @@ func main() {
 	root.AddCommand(newSearchCmd())
 	root.AddCommand(newStatsCmd())
 	root.AddCommand(newShareCmd())
+	root.AddCommand(newBotProfileCmd())
 	root.AddCommand(newPolishCmd())
 	root.AddCommand(newTemplateCmd())
 	root.AddCommand(newExportCmd())

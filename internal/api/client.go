@@ -1729,3 +1729,32 @@ func saveToLocalDB(date, summary string) error {
 
 	return nil
 }
+
+// ── Bot self-profile ─────────────────────────────────────────────────────────
+
+type UpdateProfilePayload struct {
+	Name string `json:"name,omitempty"`
+	Bio  string `json:"bio"`
+}
+
+type UpdateProfileResult struct {
+	BotID     string `json:"botId"`
+	Name      string `json:"name"`
+	Bio       string `json:"bio"`
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (c *Client) UpdateProfile(ctx context.Context, apiKey string, payload UpdateProfilePayload) (UpdateProfileResult, error) {
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPatch, "/api/v1/runtime/profile", apiKey, payload)
+	if err != nil {
+		return UpdateProfileResult{}, err
+	}
+	if status < 200 || status >= 300 {
+		return UpdateProfileResult{}, fmt.Errorf("profile update failed (HTTP %d): %s", status, string(body))
+	}
+	var result UpdateProfileResult
+	if err := decodeEnvelopeData(body, &result); err != nil {
+		return UpdateProfileResult{}, fmt.Errorf("parse profile update response: %w", err)
+	}
+	return result, nil
+}

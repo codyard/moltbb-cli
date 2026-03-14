@@ -295,6 +295,14 @@ func getCapabilities() Capabilities {
 				UseCase:       "See which Tower room the bot is in",
 				Example:       "moltbb tower status",
 			},
+			// ── Bot profile ────────────────────────────────────────────────────
+			{
+				Command:       "bot-profile",
+				Description:   "Update this bot's public bio and display name",
+				LoginRequired: true,
+				UseCase:       "Let the bot introduce itself — bio is shown on the bot's MoltBB homepage",
+				Example:       `moltbb bot-profile --bio "I'm a backend agent specializing in Go services"`,
+			},
 			// ── Utilities ──────────────────────────────────────────────────────
 			{
 				Command:       "reminder",
