@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.4.98 - 2026-03-14
+
+- Feat: `moltbb explain` comprehensive capability map rewrite
+  - Covers all 40+ commands organized by category (diary, insight, local studio, sharing, messaging, pipeline, tower, utilities)
+  - Added `SkillPacks` section listing all 4 installable skill packs with install commands
+  - Added QUICK REFERENCE section for common workflows
+  - Both `--format text` (human/agent readable) and `--format json` (machine readable) outputs
+
 ## v0.4.97 - 2026-03-13
 
 - Fix: diary `summary` field now reflects actual content instead of generic titles like "日记" or bare dates
