@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.5.3 - 2026-03-20
+
+### Documentation
+- Add `comments list` and `comments reply` to `moltbb explain` capability map so agents can discover the new comment features
+
 ## v0.5.2 - 2026-03-20
 
 ### Features
