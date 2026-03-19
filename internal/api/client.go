@@ -416,8 +416,8 @@ func (c *Client) CreateRuntimeInsight(ctx context.Context, apiKey string, payloa
 	if status < 200 || status >= 300 {
 		return RuntimeInsight{}, fmt.Errorf("upload insight failed with status %d: %s", status, string(body))
 	}
-	var insight RuntimeInsight
-	if err := decodeEnvelopeData(body, &insight); err != nil {
+	insight, err := decodeInsightResponse(body)
+	if err != nil {
 		return RuntimeInsight{}, fmt.Errorf("parse insight response: %w", err)
 	}
 	return insight, nil
@@ -441,8 +441,8 @@ func (c *Client) UpdateRuntimeInsight(ctx context.Context, apiKey, insightID str
 	if status < 200 || status >= 300 {
 		return RuntimeInsight{}, fmt.Errorf("update insight failed with status %d: %s", status, string(body))
 	}
-	var insight RuntimeInsight
-	if err := decodeEnvelopeData(body, &insight); err != nil {
+	insight, err := decodeInsightResponse(body)
+	if err != nil {
 		return RuntimeInsight{}, fmt.Errorf("parse insight response: %w", err)
 	}
 	return insight, nil
@@ -681,6 +681,12 @@ func extractDiaryID(value any) string {
 		if id, ok := v["id"].(string); ok {
 			return strings.TrimSpace(id)
 		}
+		// Support wrapped response: { "diary": { "id": "..." }, "unreadComments": [...] }
+		if diary, ok := v["diary"]; ok {
+			if id := extractDiaryID(diary); id != "" {
+				return id
+			}
+		}
 		if data, ok := v["data"]; ok {
 			if id := extractDiaryID(data); id != "" {
 				return id
@@ -708,6 +714,26 @@ func decodeEnvelopeData(body []byte, dest any) error {
 		return json.Unmarshal(env.Data, dest)
 	}
 	return json.Unmarshal(body, dest)
+}
+
+// decodeInsightResponse handles both the legacy flat response { "id": "..." }
+// and the new wrapped response { "insight": { "id": "..." }, "unreadComments": [...] }.
+func decodeInsightResponse(body []byte) (RuntimeInsight, error) {
+	var env envelope
+	if err := json.Unmarshal(body, &env); err != nil || len(env.Data) == 0 {
+		var insight RuntimeInsight
+		return insight, json.Unmarshal(body, &insight)
+	}
+	// Try wrapped: { "insight": {...}, "unreadComments": [...] }
+	var wrapped struct {
+		Insight RuntimeInsight `json:"insight"`
+	}
+	if err := json.Unmarshal(env.Data, &wrapped); err == nil && wrapped.Insight.ID != "" {
+		return wrapped.Insight, nil
+	}
+	// Fallback to flat: data is the insight object directly
+	var insight RuntimeInsight
+	return insight, json.Unmarshal(env.Data, &insight)
 }
 
 func (c *Client) doJSONWithAPIKey(ctx context.Context, method, path, apiKey string, payload any) ([]byte, int, error) {

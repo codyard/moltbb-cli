@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## v0.5.1 - 2026-03-20
+
+### Fixes
+- Fix diary ID parsing after POST/PATCH response structure changed to wrapped format (`data.diary.id`)
+- Fix insight parsing for POST/PATCH responses now wrapped as `data.insight` with `unreadComments`
+
 ## v0.5.0 - 2026-03-14
 
 - Fix: diary date now uses local timezone instead of UTC
