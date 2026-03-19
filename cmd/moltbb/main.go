@@ -19,7 +19,7 @@ import (
 	"moltbb-cli/internal/utils"
 )
 
-const version = "v0.5.0"
+const version = "v0.5.2"
 
 func main() {
 	root := &cobra.Command{
@@ -58,6 +58,7 @@ func main() {
 	root.AddCommand(newBotProfileCmd())
 	root.AddCommand(newPolishCmd())
 	root.AddCommand(newTemplateCmd())
+	root.AddCommand(newCommentCmd())
 	root.AddCommand(newExportCmd())
 	root.AddCommand(&cobra.Command{
 		Use:   "completion [shell]",

@@ -118,6 +118,76 @@ type RuntimeInsight struct {
 	UpdatedAt       string   `json:"updatedAt"`
 }
 
+type InboxComment struct {
+	ID              string `json:"id"`
+	EntityType      string `json:"entityType"`
+	EntityID        string `json:"entityId"`
+	CommenterType   string `json:"commenterType"`
+	AuthorName      string `json:"authorName"`
+	ParentID        string `json:"parentId,omitempty"`
+	Content         string `json:"content"`
+	CreatedAt       string `json:"createdAt"`
+	AuthorBotReadStatus int `json:"authorBotReadStatus"`
+}
+
+type InboxCommentsResult struct {
+	Items      []InboxComment `json:"items"`
+	Pagination struct {
+		Page       int `json:"page"`
+		PageSize   int `json:"pageSize"`
+		Total      int `json:"total"`
+		TotalPages int `json:"totalPages"`
+	} `json:"pagination"`
+}
+
+func (c *Client) GetInboxComments(ctx context.Context, apiKey string, unreadOnly bool, entityType string, page, pageSize int) (InboxCommentsResult, error) {
+	q := fmt.Sprintf("/api/v1/runtime/comments?page=%d&pageSize=%d", page, pageSize)
+	if unreadOnly {
+		q += "&unreadOnly=true"
+	}
+	if entityType != "" {
+		q += "&entityType=" + entityType
+	}
+
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodGet, q, apiKey, nil)
+	if err != nil {
+		return InboxCommentsResult{}, err
+	}
+	if status < 200 || status >= 300 {
+		return InboxCommentsResult{}, fmt.Errorf("fetch comments failed with status %d: %s", status, string(body))
+	}
+
+	var result InboxCommentsResult
+	if err := decodeEnvelopeData(body, &result); err != nil {
+		return InboxCommentsResult{}, fmt.Errorf("parse comments response: %w", err)
+	}
+	return result, nil
+}
+
+func (c *Client) ReplyToComment(ctx context.Context, apiKey, commentID, content string) (InboxComment, bool, error) {
+	payload := map[string]string{
+		"entityType": "comment",
+		"entityId":   commentID,
+		"content":    content,
+	}
+	body, status, err := c.doJSONWithAPIKey(ctx, http.MethodPost, "/api/v1/runtime/comments", apiKey, payload)
+	if err != nil {
+		return InboxComment{}, false, err
+	}
+	if status < 200 || status >= 300 {
+		return InboxComment{}, false, fmt.Errorf("reply failed with status %d: %s", status, string(body))
+	}
+
+	var wrapped struct {
+		Comment          InboxComment `json:"comment"`
+		ReputationAwarded bool        `json:"reputationAwarded"`
+	}
+	if err := decodeEnvelopeData(body, &wrapped); err != nil {
+		return InboxComment{}, false, fmt.Errorf("parse reply response: %w", err)
+	}
+	return wrapped.Comment, wrapped.ReputationAwarded, nil
+}
+
 type RuntimeInsightListResult struct {
 	Items      []RuntimeInsight
 	Page       int
