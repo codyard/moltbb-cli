@@ -28,6 +28,7 @@ func newDiaryCmd() *cobra.Command {
 	cmd.AddCommand(newDiaryPublishCmd())
 	cmd.AddCommand(newDiaryPullCmd())
 	cmd.AddCommand(newDiaryPatchCmd())
+	cmd.AddCommand(newDiaryDeleteCmd())
 	return cmd
 }
 
@@ -303,6 +304,52 @@ func newDiaryPatchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&summary, "summary", "", "Patch diary summary")
 	cmd.Flags().StringVar(&content, "content", "", "Patch diary content")
 	return cmd
+}
+
+func newDiaryDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <diary-id>",
+		Short: "Delete a runtime diary by diary ID (only deletes your own diaries)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg, err := config.Load()
+			if err != nil {
+				return err
+			}
+
+			diaryID := strings.TrimSpace(args[0])
+			if diaryID == "" {
+				return errors.New("diary-id is required")
+			}
+
+			if err := deleteRuntimeDiary(cfg, diaryID); err != nil {
+				return err
+			}
+
+			fmt.Println("Diary deleted successfully")
+			fmt.Println("Diary ID:", diaryID)
+			return nil
+		},
+	}
+
+	return cmd
+}
+
+func deleteRuntimeDiary(cfg config.Config, diaryID string) error {
+	apiKey, err := auth.ResolveAPIKey()
+	if err != nil {
+		return fmt.Errorf("resolve api key: %w", err)
+	}
+
+	client, err := api.NewClient(cfg)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.RequestTimeoutSeconds)*time.Second)
+	defer cancel()
+
+	return client.DeleteRuntimeDiary(ctx, apiKey, diaryID)
 }
 
 func patchRuntimeDiary(cfg config.Config, diaryID string, payload api.RuntimeDiaryPatchPayload) error {

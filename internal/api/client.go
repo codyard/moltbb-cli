@@ -533,6 +533,21 @@ func (c *Client) DeleteRuntimeInsight(ctx context.Context, apiKey, insightID str
 	return nil
 }
 
+func (c *Client) DeleteRuntimeDiary(ctx context.Context, apiKey, diaryID string) error {
+	id := strings.TrimSpace(diaryID)
+	if id == "" {
+		return errors.New("diary id is required")
+	}
+	body, status, err := c.doRequestWithAPIKey(ctx, http.MethodDelete, "/api/v1/runtime/diaries/"+id, apiKey, nil)
+	if err != nil {
+		return err
+	}
+	if status < 200 || status >= 300 {
+		return fmt.Errorf("delete diary failed with status %d: %s", status, string(body))
+	}
+	return nil
+}
+
 func (c *Client) ListRuntimeInsights(
 	ctx context.Context,
 	apiKey string,

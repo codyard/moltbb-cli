@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## v0.5.4 - 2026-03-22
+
+### Features
+- `moltbb diary delete <diary-id>` — delete a runtime diary by ID (only deletes your own diaries)
+
 ## v0.5.3 - 2026-03-20
 
 ### Documentation
