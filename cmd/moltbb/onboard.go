@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -31,6 +32,9 @@ type onboardOptions struct {
 	allowHTTP            bool
 	scheduleOS           string
 	generateScheduleFile bool
+	scheduleHour         int
+	installSchedule      bool
+	startDaemon          bool
 }
 
 func newOnboardCmd() *cobra.Command {
@@ -54,6 +58,9 @@ func newOnboardCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&opts.allowHTTP, "allow-http", false, "Allow insecure http endpoint")
 	cmd.Flags().StringVar(&opts.scheduleOS, "schedule-os", "", "Scheduling target OS: linux|macos|windows")
 	cmd.Flags().BoolVar(&opts.generateScheduleFile, "generate-schedule-files", false, "Generate scheduling snippets into ~/.moltbb/examples")
+	cmd.Flags().IntVar(&opts.scheduleHour, "schedule-hour", 0, "Hour for scheduled diary writing: 20, 21, or 22 (0 = interactive prompt)")
+	cmd.Flags().BoolVar(&opts.installSchedule, "install-schedule", false, "Auto-install system schedule (cron/launchd) for diary writing")
+	cmd.Flags().BoolVar(&opts.startDaemon, "start-daemon", false, "Start local web dashboard after onboarding")
 
 	return cmd
 }
@@ -273,7 +280,7 @@ func runOnboardInteractive(opts onboardOptions, cfg config.Config, existingCred 
 		fmt.Println("Skipped binding because no validated API key is available.")
 	}
 
-	fmt.Println("\nStep E: Scheduling guidance")
+	fmt.Println("\nStep E: Scheduling — Auto diary writing")
 	detectedOS := detectedScheduleOS()
 	selectedOS, err := utils.PromptString(reader, "Scheduling OS (linux/macos/windows)", detectedOS)
 	if err != nil {
@@ -283,21 +290,47 @@ func runOnboardInteractive(opts onboardOptions, cfg config.Config, existingCred 
 	if selectedOS == "" {
 		selectedOS = detectedOS
 	}
-	printScheduleSnippet(selectedOS)
+	selectedHour, err := promptScheduleHour(reader)
+	if err != nil {
+		return err
+	}
+	printScheduleSnippet(selectedOS, selectedHour)
 
-	generateFiles, promptErr := utils.PromptYesNo(reader, "Generate scheduling example files in ~/.moltbb/examples?", false)
+	installNow, promptErr := utils.PromptYesNo(reader, fmt.Sprintf("Auto-install schedule now (%s)?", selectedOS), true)
 	if promptErr != nil {
 		return promptErr
 	}
-	if generateFiles {
-		path, genErr := generateScheduleExamples(selectedOS)
-		if genErr != nil {
-			return genErr
+	if installNow {
+		if instErr := installScheduleForOS(selectedOS, selectedHour); instErr != nil {
+			fmt.Printf("[WARN] schedule install: %v\n", instErr)
 		}
-		fmt.Println("Generated scheduling examples in:", path)
+	} else {
+		generateFiles, genPromptErr := utils.PromptYesNo(reader, "Generate scheduling example files in ~/.moltbb/examples?", false)
+		if genPromptErr != nil {
+			return genPromptErr
+		}
+		if generateFiles {
+			path, genErr := generateScheduleExamples(selectedOS, selectedHour)
+			if genErr != nil {
+				return genErr
+			}
+			fmt.Println("Generated scheduling examples in:", path)
+		}
 	}
 
-	fmt.Println("\nStep F: Final summary")
+	fmt.Println("\nStep F: Local web dashboard")
+	fmt.Println("The local dashboard lets you browse and manage your diaries/insights at http://127.0.0.1:3789")
+	startNow, daemonPromptErr := utils.PromptYesNo(reader, "Start local web dashboard now?", true)
+	if daemonPromptErr != nil {
+		return daemonPromptErr
+	}
+	if startNow {
+		startDaemonNow()
+	} else {
+		fmt.Println("You can start it later with: moltbb daemon start")
+	}
+
+	fmt.Println("\nStep G: Final summary")
 	return printOnboardSummary(cfg, keyValidated || existingCred != nil, bound)
 }
 
@@ -423,13 +456,24 @@ func runOnboardNonInteractive(opts onboardOptions, cfg config.Config, cfgExists 
 	if selectedOS == "" {
 		selectedOS = detectedScheduleOS()
 	}
-	printScheduleSnippet(selectedOS)
-	if opts.generateScheduleFile {
-		path, genErr := generateScheduleExamples(selectedOS)
-		if genErr != nil {
-			return genErr
+	scheduleHour := normalizeScheduleHour(opts.scheduleHour)
+	if opts.installSchedule {
+		if instErr := installScheduleForOS(selectedOS, scheduleHour); instErr != nil {
+			fmt.Printf("[WARN] schedule install: %v\n", instErr)
 		}
-		fmt.Println("Generated scheduling examples in:", path)
+	} else {
+		printScheduleSnippet(selectedOS, scheduleHour)
+		if opts.generateScheduleFile {
+			path, genErr := generateScheduleExamples(selectedOS, scheduleHour)
+			if genErr != nil {
+				return genErr
+			}
+			fmt.Println("Generated scheduling examples in:", path)
+		}
+	}
+
+	if opts.startDaemon {
+		startDaemonNow()
 	}
 
 	return printOnboardSummary(cfg, keyReady || existingCred != nil, bound)
@@ -550,15 +594,15 @@ func normalizeScheduleOS(value string) string {
 	}
 }
 
-func printScheduleSnippet(osType string) {
-	fmt.Println("Scheduling snippets:")
-	fmt.Println(scheduleSnippet(osType))
+func printScheduleSnippet(osType string, hour int) {
+	fmt.Printf("Scheduling snippet (daily at %02d:00):\n", hour)
+	fmt.Println(scheduleSnippet(osType, hour))
 }
 
-func scheduleSnippet(osType string) string {
+func scheduleSnippet(osType string, hour int) string {
 	switch osType {
 	case "macos":
-		return `macOS launchd (~/Library/LaunchAgents/com.moltbb.run.plist):
+		return fmt.Sprintf(`macOS launchd (~/Library/LaunchAgents/com.moltbb.run.plist):
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -567,26 +611,26 @@ func scheduleSnippet(osType string) string {
   <key>ProgramArguments</key>
   <array><string>/usr/local/bin/moltbb</string><string>run</string></array>
   <key>StartCalendarInterval</key>
-  <dict><key>Hour</key><integer>21</integer><key>Minute</key><integer>0</integer></dict>
+  <dict><key>Hour</key><integer>%d</integer><key>Minute</key><integer>0</integer></dict>
   <key>StandardOutPath</key><string>~/.moltbb/logs/launchd.out.log</string>
   <key>StandardErrorPath</key><string>~/.moltbb/logs/launchd.err.log</string>
 </dict>
 </plist>
 
 Load command:
-launchctl load ~/Library/LaunchAgents/com.moltbb.run.plist`
+launchctl load ~/Library/LaunchAgents/com.moltbb.run.plist`, hour)
 	case "windows":
-		return `Windows Task Scheduler (PowerShell):
+		return fmt.Sprintf(`Windows Task Scheduler (PowerShell):
 $Action = New-ScheduledTaskAction -Execute "moltbb" -Argument "run"
-$Trigger = New-ScheduledTaskTrigger -Daily -At 9:00PM
-Register-ScheduledTask -TaskName "MoltBBDiary" -Action $Action -Trigger $Trigger`
+$Trigger = New-ScheduledTaskTrigger -Daily -At %d:00PM
+Register-ScheduledTask -TaskName "MoltBBDiary" -Action $Action -Trigger $Trigger`, hour-12)
 	default:
-		return `Linux cron:
-0 21 * * * /usr/local/bin/moltbb run >> ~/.moltbb/logs/cron.log 2>&1`
+		return fmt.Sprintf(`Linux cron:
+0 %d * * * /usr/local/bin/moltbb run >> ~/.moltbb/logs/cron.log 2>&1`, hour)
 	}
 }
 
-func generateScheduleExamples(osType string) (string, error) {
+func generateScheduleExamples(osType string, hour int) (string, error) {
 	base, err := utils.MoltbbDir()
 	if err != nil {
 		return "", err
@@ -599,11 +643,11 @@ func generateScheduleExamples(osType string) (string, error) {
 	files := map[string]string{}
 	switch osType {
 	case "macos":
-		files["launchd.plist"] = scheduleSnippet("macos")
+		files["launchd.plist"] = scheduleSnippet("macos", hour)
 	case "windows":
-		files["task-scheduler.ps1"] = scheduleSnippet("windows")
+		files["task-scheduler.ps1"] = scheduleSnippet("windows", hour)
 	default:
-		files["cron.txt"] = scheduleSnippet("linux")
+		files["cron.txt"] = scheduleSnippet("linux", hour)
 	}
 
 	for name, content := range files {
@@ -613,4 +657,148 @@ func generateScheduleExamples(osType string) (string, error) {
 	}
 
 	return examplesDir, nil
+}
+
+// promptScheduleHour asks the user to choose a diary writing hour: 20, 21, or 22.
+func promptScheduleHour(reader *bufio.Reader) (int, error) {
+	for {
+		raw, err := utils.PromptString(reader, "Diary writing time — choose hour (20 / 21 / 22)", "21")
+		if err != nil {
+			return 0, err
+		}
+		switch strings.TrimSpace(raw) {
+		case "20":
+			return 20, nil
+		case "21":
+			return 21, nil
+		case "22":
+			return 22, nil
+		default:
+			fmt.Println("Please enter 20, 21, or 22.")
+		}
+	}
+}
+
+// normalizeScheduleHour returns h if valid (20/21/22), otherwise defaults to 21.
+func normalizeScheduleHour(h int) int {
+	if h == 20 || h == 21 || h == 22 {
+		return h
+	}
+	return 21
+}
+
+// installScheduleForOS installs the diary writing schedule for the detected OS.
+func installScheduleForOS(osType string, hour int) error {
+	switch osType {
+	case "macos":
+		return installLaunchdSchedule(hour)
+	case "linux":
+		return installCronSchedule(hour)
+	default:
+		fmt.Println("Auto-install not supported on Windows. Please configure Task Scheduler manually using the snippet above.")
+		return nil
+	}
+}
+
+func installLaunchdSchedule(hour int) error {
+	home := os.Getenv("HOME")
+	plistDir := filepath.Join(home, "Library", "LaunchAgents")
+	plistPath := filepath.Join(plistDir, "com.moltbb.run.plist")
+	logDir := filepath.Join(home, ".moltbb", "logs")
+
+	content := fmt.Sprintf(`<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.moltbb.run</string>
+  <key>ProgramArguments</key>
+  <array><string>%s</string><string>run</string></array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>%d</integer><key>Minute</key><integer>0</integer></dict>
+  <key>StandardOutPath</key><string>%s/launchd.out.log</string>
+  <key>StandardErrorPath</key><string>%s/launchd.err.log</string>
+</dict>
+</plist>
+`, moltbbBinaryPath(), hour, logDir, logDir)
+
+	if err := os.MkdirAll(plistDir, 0o755); err != nil {
+		return fmt.Errorf("create LaunchAgents dir: %w", err)
+	}
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
+		return fmt.Errorf("create log dir: %w", err)
+	}
+	if err := os.WriteFile(plistPath, []byte(content), 0o644); err != nil {
+		return fmt.Errorf("write plist: %w", err)
+	}
+
+	// Unload first (ignore error if not loaded)
+	exec.Command("launchctl", "unload", plistPath).Run() //nolint:errcheck
+
+	loadCmd := exec.Command("launchctl", "load", plistPath)
+	loadCmd.Stdout = os.Stdout
+	loadCmd.Stderr = os.Stderr
+	if err := loadCmd.Run(); err != nil {
+		fmt.Printf("[WARN] launchctl load: %v\n", err)
+		fmt.Println("Run manually: launchctl load", plistPath)
+	} else {
+		fmt.Printf("✅ Schedule installed: daily at %02d:00\n", hour)
+	}
+	return nil
+}
+
+func installCronSchedule(hour int) error {
+	existingBytes, _ := exec.Command("crontab", "-l").Output()
+	existing := string(existingBytes)
+
+	moltbbPath := moltbbBinaryPath()
+	newLine := fmt.Sprintf("0 %d * * * %s run >> ~/.moltbb/logs/cron.log 2>&1  # moltbb-diary", hour, moltbbPath)
+
+	// Remove any existing moltbb diary cron line
+	var kept []string
+	for _, line := range strings.Split(existing, "\n") {
+		if !strings.Contains(line, "moltbb run") && !strings.Contains(line, "# moltbb-diary") {
+			kept = append(kept, line)
+		}
+	}
+	// Trim trailing blank lines then append new entry
+	for len(kept) > 0 && strings.TrimSpace(kept[len(kept)-1]) == "" {
+		kept = kept[:len(kept)-1]
+	}
+	kept = append(kept, newLine, "")
+	newCrontab := strings.Join(kept, "\n")
+
+	cmd := exec.Command("crontab", "-")
+	cmd.Stdin = strings.NewReader(newCrontab)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("install cron job: %w", err)
+	}
+	fmt.Printf("✅ Cron job installed: daily at %02d:00\n", hour)
+	return nil
+}
+
+// moltbbBinaryPath returns the path to the running moltbb binary, falling back to a common install location.
+func moltbbBinaryPath() string {
+	if path, err := exec.LookPath("moltbb"); err == nil {
+		return path
+	}
+	return "/usr/local/bin/moltbb"
+}
+
+// startDaemonNow launches the local web dashboard as a background daemon.
+func startDaemonNow() {
+	moltbbPath, err := exec.LookPath("moltbb")
+	if err != nil {
+		fmt.Println("[WARN] moltbb not found in PATH, cannot start daemon automatically.")
+		fmt.Println("Run manually: moltbb daemon start")
+		return
+	}
+	cmd := exec.Command(moltbbPath, "daemon", "start")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Printf("[WARN] daemon start: %v\n", err)
+		fmt.Println("Run manually: moltbb daemon start")
+	}
 }

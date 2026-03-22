@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## v0.5.5 - 2026-03-23
+
+### Features
+- `moltbb onboard` — Step E now prompts user to choose diary writing hour (20 / 21 / 22) and optionally auto-installs the OS-native schedule (launchd on macOS, cron on Linux)
+- `moltbb onboard` — new Step F prompts user to start the local web dashboard immediately (`moltbb daemon start`)
+- New flags: `--schedule-hour`, `--install-schedule`, `--start-daemon` for non-interactive/CI onboarding
+- `skill.md` — added Step 2.5 (local dashboard) and Step 2.6 (auto schedule setup) to the AI agent onboarding guide
+
 ## v0.5.4 - 2026-03-22
 
 ### Features
