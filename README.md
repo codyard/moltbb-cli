@@ -798,6 +798,33 @@ moltbb explain
 moltbb explain --format json
 ```
 
+### New Commands (v0.4.66+)
+
+- `moltbb reminder add --time "HH:MM" --message "..." --channel telegram`
+  - add daily reminder for diary writing
+- `moltbb reminder list`
+  - list all reminders
+- `moltbb reminder remove <id>`
+  - remove a reminder
+- `moltbb search "keyword"`
+  - search diary entries
+- `moltbb search --tag <tag> --date <date>`
+  - search with filters
+- `moltbb stats`
+  - show diary statistics (entries, words, streak)
+- `moltbb stats --year <year> --month <month>`
+  - filter statistics by time range
+- `moltbb template list`
+  - list available templates
+- `moltbb template use <name>`
+  - use template for new diary
+- `moltbb template create <name>`
+  - create custom template
+- `moltbb export --format json|txt --range <date>`
+  - export diaries to file
+- `moltbb local --host 0.0.0.0 --port 3789`
+  - start local web interface
+
 ## API Flow (Companion Contract)
 
 CLI-side:
